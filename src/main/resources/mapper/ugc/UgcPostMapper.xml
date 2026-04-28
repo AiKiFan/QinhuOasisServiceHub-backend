@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.qinhu.oasis.ugc.mapper.UgcPostMapper">
+
+    <!-- 列表分页查询（LEFT JOIN sys_user 获取作者信息） -->
+    <select id="selectPage" resultType="com.qinhu.oasis.ugc.dto.PostListVO">
+        SELECT p.id,
+               p.user_id,
+               u.nickname  AS author_nickname,
+               u.avatar    AS author_avatar,
+               p.post_type,
+               p.title,
+               p.title_en,
+               p.summary,
+               p.cover_img,
+               p.view_count,
+               p.like_count,
+               p.comment_count,
+               p.status,
+               p.create_time
+        FROM ugc_post p
+                 LEFT JOIN sys_user u ON p.user_id = u.id
+        WHERE p.deleted = 0
+          AND p.status = 1
+            <if test="postType != null">
+                AND p.post_type = #{postType}
+            </if>
+        ORDER BY p.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*)
+        FROM ugc_post
+        WHERE deleted = 0
+          AND status = 1
+            <if test="postType != null">
+                AND post_type = #{postType}
+            </if>
+    </select>
+
+    <!-- 详情查询（含正文 content 和 images） -->
+    <select id="selectDetailById" resultType="com.qinhu.oasis.ugc.dto.PostDetailVO">
+        SELECT p.id,
+               p.user_id,
+               u.nickname  AS author_nickname,
+               u.avatar    AS author_avatar,
+               p.post_type,
+               p.title,
+               p.title_en,
+               p.summary,
+               p.content,
+               p.cover_img,
+               p.images,
+               p.view_count,
+               p.like_count,
+               p.comment_count,
+               p.status,
+               p.create_time
+        FROM ugc_post p
+                 LEFT JOIN sys_user u ON p.user_id = u.id
+        WHERE p.id = #{id}
+          AND p.deleted = 0
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ugc_post (user_id, post_type, title, title_en, summary, content,
+                              cover_img, images, status)
+        VALUES (#{userId}, #{postType}, #{title}, #{titleEn}, #{summary}, #{content},
+                #{coverImg}, #{images}, #{status})
+    </insert>
+
+    <update id="incrementViewCount">
+        UPDATE ugc_post SET view_count = view_count + 1 WHERE id = #{id}
+    </update>
+
+    <update id="incrementLikeCount">
+        UPDATE ugc_post SET like_count = like_count + 1 WHERE id = #{id}
+    </update>
+
+    <update id="decrementLikeCount">
+        UPDATE ugc_post SET like_count = GREATEST(like_count - 1, 0) WHERE id = #{id}
+    </update>
+
+    <update id="incrementCommentCount">
+        UPDATE ugc_post SET comment_count = comment_count + 1 WHERE id = #{id}
+    </update>
+
+</mapper>

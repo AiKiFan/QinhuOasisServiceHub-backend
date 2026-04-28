@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qinhu.oasis.interpreter.mapper.InterpreterProfileMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO interpreter_profile (
+            user_id, real_name, student_id, school, english_level,
+            cert_url, cert_no, introduction, introduction_en,
+            service_types, hourly_rate, status
+        ) VALUES (
+            #{userId}, #{realName}, #{studentId}, #{school}, #{englishLevel},
+            #{certUrl}, #{certNo}, #{introduction}, #{introductionEn},
+            #{serviceTypes}, #{hourlyRate}, #{status}
+        )
+    </insert>
+
+    <select id="selectById" resultType="com.qinhu.oasis.interpreter.entity.InterpreterProfile">
+        SELECT * FROM interpreter_profile WHERE id = #{id}
+    </select>
+
+    <select id="selectByUserId" resultType="com.qinhu.oasis.interpreter.entity.InterpreterProfile">
+        SELECT * FROM interpreter_profile WHERE user_id = #{userId}
+    </select>
+
+    <!-- 对外展示：仅查已通过审核，按评分+接单数降序 -->
+    <select id="selectPage" resultType="com.qinhu.oasis.interpreter.dto.InterpreterVO">
+        SELECT p.id, p.user_id,
+               u.nickname, u.avatar,
+               p.real_name, p.student_id, p.school,
+               p.english_level, p.introduction, p.introduction_en,
+               p.service_types, p.hourly_rate,
+               p.rating, p.total_orders, p.status,
+               p.create_time
+        FROM interpreter_profile p
+        LEFT JOIN sys_user u ON p.user_id = u.id
+        WHERE p.status = 1
+        ORDER BY p.rating DESC, p.total_orders DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*) FROM interpreter_profile WHERE status = 1
+    </select>
+
+    <!-- 管理员视图：可筛选状态，含 cert_url / cert_no / reject_reason -->
+    <select id="selectAdminPage" resultType="com.qinhu.oasis.interpreter.dto.InterpreterVO">
+        SELECT p.id, p.user_id,
+               u.nickname, u.avatar,
+               p.real_name, p.student_id, p.school,
+               p.english_level, p.cert_url, p.cert_no,
+               p.introduction, p.introduction_en,
+               p.service_types, p.hourly_rate,
+               p.rating, p.total_orders, p.status, p.reject_reason,
+               p.create_time
+        FROM interpreter_profile p
+        LEFT JOIN sys_user u ON p.user_id = u.id
+        <where>
+            <if test="status != null">p.status = #{status}</if>
+        </where>
+        ORDER BY p.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*) FROM interpreter_profile
+        <where>
+            <if test="status != null">status = #{status}</if>
+        </where>
+    </select>
+
+    <update id="updateStatus">
+        UPDATE interpreter_profile
+        SET status = #{status}, reject_reason = #{rejectReason}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

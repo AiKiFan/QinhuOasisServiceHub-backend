@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.qinhu.oasis.sys.mapper.SysUserMapper">
+
+    <resultMap id="BaseResultMap" type="com.qinhu.oasis.sys.entity.SysUser">
+        <id     column="id"              property="id"/>
+        <result column="username"        property="username"/>
+        <result column="password"        property="password"/>
+        <result column="phone"           property="phone"/>
+        <result column="email"           property="email"/>
+        <result column="nickname"        property="nickname"/>
+        <result column="avatar"          property="avatar"/>
+        <result column="role"            property="role"/>
+        <result column="status"          property="status"/>
+        <result column="locale"          property="locale"/>
+        <result column="last_login_ip"   property="lastLoginIp"/>
+        <result column="last_login_time" property="lastLoginTime"/>
+        <result column="create_time"     property="createTime"/>
+        <result column="update_time"     property="updateTime"/>
+        <result column="deleted"         property="deleted"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, username, password, phone, email, nickname, avatar,
+               role, status, locale, last_login_ip, last_login_time,
+               create_time, update_time, deleted
+        FROM sys_user
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByUsername" resultMap="BaseResultMap">
+        SELECT id, username, password, phone, email, nickname, avatar,
+               role, status, locale, last_login_ip, last_login_time,
+               create_time, update_time, deleted
+        FROM sys_user
+        WHERE username = #{username}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_user (username, password, phone, email, nickname, avatar, role, status, locale)
+        VALUES (#{username}, #{password}, #{phone}, #{email}, #{nickname}, #{avatar},
+                #{role}, #{status}, #{locale})
+    </insert>
+
+    <update id="updateLastLogin">
+        UPDATE sys_user
+        SET last_login_ip   = #{ip},
+            last_login_time = #{loginTime}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateRole">
+        UPDATE sys_user SET role = #{role} WHERE id = #{id}
+    </update>
+
+</mapper>

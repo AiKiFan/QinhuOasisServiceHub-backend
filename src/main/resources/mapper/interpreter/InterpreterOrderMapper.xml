@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qinhu.oasis.interpreter.mapper.InterpreterOrderMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO biz_order (
+            order_no, order_type, user_id, interpreter_id,
+            service_type, group_size,
+            start_time, end_time, total_amount, paid_amount,
+            status, remark
+        ) VALUES (
+            #{orderNo}, #{orderType}, #{userId}, #{interpreterId},
+            #{serviceType}, #{groupSize},
+            #{startTime}, #{endTime}, #{totalAmount}, #{paidAmount},
+            #{status}, #{remark}
+        )
+    </insert>
+
+    <select id="selectById" resultType="com.qinhu.oasis.tourism.entity.BizOrder">
+        SELECT * FROM biz_order WHERE id = #{id} AND deleted = 0
+    </select>
+
+    <!-- 游客侧：按 user_id 查，JOIN sys_user 获取双方昵称，JOIN interpreter_profile 获取 profile_id -->
+    <select id="selectByUserId" resultType="com.qinhu.oasis.interpreter.dto.InterpreterOrderVO">
+        SELECT o.id, o.order_no, o.user_id,
+               u.nickname AS user_nickname,
+               o.interpreter_id,
+               i.nickname AS interpreter_nickname,
+               p.id AS profile_id,
+               o.service_type, o.group_size,
+               o.start_time, o.end_time, o.total_amount, o.paid_amount,
+               o.status, o.remark, o.cancel_reason, o.is_commented, o.create_time
+        FROM biz_order o
+        LEFT JOIN sys_user u ON o.user_id = u.id
+        LEFT JOIN sys_user i ON o.interpreter_id = i.id
+        LEFT JOIN interpreter_profile p ON o.interpreter_id = p.user_id
+        WHERE o.user_id = #{userId} AND o.order_type = 1 AND o.deleted = 0
+        ORDER BY o.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM biz_order
+        WHERE user_id = #{userId} AND order_type = 1 AND deleted = 0
+    </select>
+
+    <!-- 译员侧：按 interpreter_id 查 -->
+    <select id="selectByInterpreterId" resultType="com.qinhu.oasis.interpreter.dto.InterpreterOrderVO">
+        SELECT o.id, o.order_no, o.user_id,
+               u.nickname AS user_nickname,
+               o.interpreter_id,
+               i.nickname AS interpreter_nickname,
+               p.id AS profile_id,
+               o.service_type, o.group_size,
+               o.start_time, o.end_time, o.total_amount, o.paid_amount,
+               o.status, o.remark, o.cancel_reason, o.is_commented, o.create_time
+        FROM biz_order o
+        LEFT JOIN sys_user u ON o.user_id = u.id
+        LEFT JOIN sys_user i ON o.interpreter_id = i.id
+        LEFT JOIN interpreter_profile p ON o.interpreter_id = p.user_id
+        WHERE o.interpreter_id = #{interpreterId} AND o.order_type = 1 AND o.deleted = 0
+        ORDER BY o.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countByInterpreterId" resultType="long">
+        SELECT COUNT(*) FROM biz_order
+        WHERE interpreter_id = #{interpreterId} AND order_type = 1 AND deleted = 0
+    </select>
+
+    <update id="updateStatus">
+        UPDATE biz_order SET status = #{status} WHERE id = #{id}
+    </update>
+
+    <update id="acceptOrder">
+        UPDATE biz_order
+        SET interpreter_id = #{interpreterId}, status = #{status}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

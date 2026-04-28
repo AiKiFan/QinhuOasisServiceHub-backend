@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.qinhu.oasis.ugc.mapper.BizCommentMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO biz_comment (user_id, target_id, target_type, content, rating,
+                                 images, parent_id, reply_to_user_id, order_id)
+        VALUES (#{userId}, #{targetId}, #{targetType}, #{content}, #{rating},
+                #{images}, #{parentId}, #{replyToUserId}, #{orderId})
+    </insert>
+
+    <!-- 查询一级评论列表（parent_id IS NULL，LEFT JOIN sys_user 获取作者信息） -->
+    <select id="selectByTarget" resultType="com.qinhu.oasis.ugc.dto.CommentVO">
+        SELECT c.id,
+               c.user_id,
+               u.nickname AS author_nickname,
+               u.avatar   AS author_avatar,
+               c.content,
+               c.rating,
+               c.images,
+               c.like_count,
+               c.parent_id,
+               c.create_time
+        FROM biz_comment c
+                 LEFT JOIN sys_user u ON c.user_id = u.id
+        WHERE c.deleted = 0
+          AND c.status = 1
+          AND c.target_id = #{targetId}
+          AND c.target_type = #{targetType}
+          AND c.parent_id IS NULL
+        ORDER BY c.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countByTarget" resultType="long">
+        SELECT COUNT(*)
+        FROM biz_comment
+        WHERE deleted = 0
+          AND status = 1
+          AND target_id = #{targetId}
+          AND target_type = #{targetType}
+          AND parent_id IS NULL
+    </select>
+
+</mapper>

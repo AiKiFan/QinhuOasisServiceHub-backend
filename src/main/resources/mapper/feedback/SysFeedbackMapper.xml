@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qinhu.oasis.feedback.mapper.SysFeedbackMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_feedback (
+            user_id, feedback_type, title, content, images, contact, status
+        ) VALUES (
+            #{userId}, #{feedbackType}, #{title}, #{content}, #{images}, #{contact}, #{status}
+        )
+    </insert>
+
+    <!-- 单条查询，JOIN sys_user 获取提交者和处理人昵称 -->
+    <select id="selectById" resultType="com.qinhu.oasis.feedback.dto.FeedbackVO">
+        SELECT f.id, f.user_id,
+               u.nickname AS user_nickname,
+               f.feedback_type, f.title, f.content, f.images, f.contact,
+               f.status, f.reply_content, f.reply_time, f.handler_id,
+               h.nickname AS handler_nickname,
+               f.create_time
+        FROM sys_feedback f
+        LEFT JOIN sys_user u ON f.user_id = u.id
+        LEFT JOIN sys_user h ON f.handler_id = h.id
+        WHERE f.id = #{id}
+    </select>
+
+    <!-- 管理员分页查询，可按状态和类型筛选 -->
+    <select id="selectAdminPage" resultType="com.qinhu.oasis.feedback.dto.FeedbackVO">
+        SELECT f.id, f.user_id,
+               u.nickname AS user_nickname,
+               f.feedback_type, f.title, f.content, f.images, f.contact,
+               f.status, f.reply_content, f.reply_time, f.handler_id,
+               h.nickname AS handler_nickname,
+               f.create_time
+        FROM sys_feedback f
+        LEFT JOIN sys_user u ON f.user_id = u.id
+        LEFT JOIN sys_user h ON f.handler_id = h.id
+        <where>
+            <if test="status != null">f.status = #{status}</if>
+            <if test="feedbackType != null">AND f.feedback_type = #{feedbackType}</if>
+        </where>
+        ORDER BY f.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*) FROM sys_feedback
+        <where>
+            <if test="status != null">status = #{status}</if>
+            <if test="feedbackType != null">AND feedback_type = #{feedbackType}</if>
+        </where>
+    </select>
+
+    <update id="updateReply">
+        UPDATE sys_feedback
+        SET reply_content = #{replyContent},
+            status        = #{status},
+            handler_id    = #{handlerId},
+            reply_time    = #{replyTime}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

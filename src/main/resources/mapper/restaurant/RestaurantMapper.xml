@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qinhu.oasis.restaurant.mapper.RestaurantMapper">
+
+    <select id="selectAll" resultType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        SELECT * FROM biz_restaurant
+        WHERE deleted = 0 AND status = 1
+    </select>
+
+    <select id="selectById" resultType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        SELECT * FROM biz_restaurant
+        WHERE id = #{id} AND deleted = 0
+    </select>
+
+    <select id="selectByIds" resultType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        SELECT * FROM biz_restaurant
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND deleted = 0
+    </select>
+
+    <select id="selectPage" resultType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        SELECT * FROM biz_restaurant
+        WHERE deleted = 0 AND status = 1
+        <if test="category != null and category != ''">
+            AND category = #{category}
+        </if>
+        ORDER BY sort_score DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countByCategory" resultType="long">
+        SELECT COUNT(*) FROM biz_restaurant
+        WHERE deleted = 0 AND status = 1
+        <if test="category != null and category != ''">
+            AND category = #{category}
+        </if>
+    </select>
+
+    <select id="selectTopByScore" resultType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        SELECT * FROM biz_restaurant
+        WHERE deleted = 0 AND status = 1
+        ORDER BY sort_score DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

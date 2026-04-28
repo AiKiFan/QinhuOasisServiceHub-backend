@@ -1,0 +1,21 @@
+# --- 编译产出 (必须忽略) ---
+target/
+*.class
+
+# --- IDEA 配置文件 (建议忽略) ---
+.idea/
+*.iml
+out/
+/shelf/
+/.idea/workspace.xml
+/httpRequests/
+/dataSources/
+/dataSources.local.xml
+
+# --- 操作系统文件 ---
+.DS_Store
+Thumbs.db
+
+# --- 日志与临时文件 ---
+*.log
+tmp/
