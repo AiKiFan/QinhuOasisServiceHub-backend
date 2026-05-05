@@ -19,3 +19,7 @@ Thumbs.db
 # --- 日志与临时文件 ---
 *.log
 tmp/
+
+# --- 本地敏感配置（包含数据库密码、API私钥等，禁止提交）---
+**/application-local.yml
+**/application-secret.yml

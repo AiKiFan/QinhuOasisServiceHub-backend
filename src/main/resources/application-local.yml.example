@@ -1,0 +1,43 @@
+# ================================================================
+# 本地开发配置模板 - 此文件提交 Git，供参考
+# 使用方法：复制此文件为 application-local.yml，填入真实值
+# ================================================================
+
+spring:
+  # ── 数据源 ──────────────────────────────────────────────
+  datasource:
+    url: jdbc:mysql://localhost:3306/qinhu_oasis?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: your_db_username
+    password: your_db_password
+
+  # ── Redis ────────────────────────────────────────────────
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:           # 如有密码填写此处
+      database: 4
+
+# ── Minio ────────────────────────────────────────────────
+minio:
+  access-key: your_minio_access_key
+  secret-key: your_minio_secret_key
+
+# ── JWT ──────────────────────────────────────────────────
+jwt:
+  secret: your-jwt-secret-key-at-least-256-bits-long-for-hs256
+
+# ── 第三方 API 密钥 ───────────────────────────────────────
+third-party:
+  hefeng-weather:
+    project-id: "your_hefeng_project_id"
+    key-id: "your_hefeng_key_id"
+    private-key: |
+      -----BEGIN PRIVATE KEY-----
+      your_private_key_content_here
+      -----END PRIVATE KEY-----
+  amap:
+    key: your_amap_key
+  baidu-translate:
+    app-id: your_baidu_app_id
+    secret-key: your_baidu_secret_key

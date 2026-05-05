@@ -14,48 +14,55 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.Signature;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 天气服务实现
- * <p>代理和风天气 API（免费版），Redis 缓存 30 分钟；外部接口异常时降级返回 Mock 数据</p>
+ * 天气服务实现 - 升级为和风天气 EdDSA JWT 鉴权模式
  *
  * @author AiKiFan
- * @date 2026-04-28
+ * @date 2026-05-05
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class WeatherServiceImpl implements WeatherService {
 
-    // ── Redis 缓存 Key 前缀 & TTL ───────────────────────────
     private static final String CACHE_KEY_PREFIX = "weather:now:";
     private static final long CACHE_TTL_MINUTES = 30;
 
-    // ── 和风天气配置（从 application.yml 读取） ───────────────
-    @Value("${third-party.hefeng-weather.key}")
-    private String apiKey;
-
+    // ── 从 application.yml 读取新配置 ───────────────────────
     @Value("${third-party.hefeng-weather.base-url}")
     private String baseUrl;
+
+    @Value("${third-party.hefeng-weather.project-id}")
+    private String projectId; // 对应截图中的项目 ID: 4C88VDQTG9
+
+    @Value("${third-party.hefeng-weather.key-id}")
+    private String keyId; // 对应截图中的凭据 ID: T9PRE4WXUE
+
+    @Value("${third-party.hefeng-weather.private-key}")
+    private String privateKeyString;
 
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
 
-    /**
-     * 获取景区天气（实时 + 3日预报）
-     * 流程：Redis 命中 → 反序列化返回；未命中 → 调用和风 API → 写入 Redis → 返回；
-     * API 异常 → 降级 Mock 数据
-     */
     @Override
     public WeatherVO getWeather(double lon, double lat) {
         String cacheKey = CACHE_KEY_PREFIX + lon + "," + lat;
 
-        // 1. 尝试从 Redis 缓存读取
+        // 1. 尝试 Redis 缓存
         try {
             String cached = stringRedisTemplate.opsForValue().get(cacheKey);
             if (cached != null) {
@@ -63,101 +70,123 @@ public class WeatherServiceImpl implements WeatherService {
                 return objectMapper.readValue(cached, WeatherVO.class);
             }
         } catch (Exception e) {
-            log.warn("[Weather] Redis read failed, proceeding to API call: {}", e.getMessage());
+            log.warn("[Weather] Redis read failed: {}", e.getMessage());
         }
 
-        // 2. 调用和风天气 API
+        // 2. 调用 API
         try {
             WeatherVO vo = fetchFromApi(lon, lat);
-            // 写入 Redis 缓存
+            // 写入 Redis
             try {
                 String json = objectMapper.writeValueAsString(vo);
                 stringRedisTemplate.opsForValue().set(cacheKey, json, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-                log.debug("[Weather] Cached weather data, key={}, ttl={}min", cacheKey, CACHE_TTL_MINUTES);
             } catch (Exception e) {
                 log.warn("[Weather] Redis write failed: {}", e.getMessage());
             }
             return vo;
         } catch (Exception e) {
-            log.error("[Weather] API call failed for location={},{}, falling back to mock. Error: {}", lon, lat, e.getMessage());
+            log.error("[Weather] API Error for location={},{}, fallback to mock. Error: {}", lon, lat, e.getMessage());
             return buildMockWeather();
         }
     }
 
-    // ── 私有方法 ────────────────────────────────────────────
-
     /**
-     * 调用和风天气 API，同时获取实时天气与3日预报，合并为 WeatherVO
+     * 核心：生成 EdDSA 算法的 JWT Token (官方标准实现)
      */
+    private String generateQWeatherToken() throws Exception {
+        // 1. 提取纯净的私钥 Base64 字符串
+        String cleanKey = privateKeyString
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replaceAll("\\s", "");
+
+        byte[] privateKeyBytes = Base64.getDecoder().decode(cleanKey);
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance("EdDSA");
+        PrivateKey privateKey = keyFactory.generatePrivate(keySpec);
+
+        // 2. 构造 Header (alg=EdDSA, kid=凭据ID)
+        String headerJson = "{\"alg\": \"EdDSA\", \"kid\": \"" + keyId + "\"}";
+
+        // 3. 构造 Payload (sub=项目ID, iat=当前时间前30秒)
+        long iat = ZonedDateTime.now(ZoneOffset.UTC).toEpochSecond() - 30;
+        long exp = iat + 900; // 15分钟有效
+        String payloadJson = "{\"sub\": \"" + projectId + "\", \"iat\": " + iat + ", \"exp\": " + exp + "}";
+
+        // 4. Base64URL 编码 (无填充)
+        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+        String headerEncoded = encoder.encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));
+        String payloadEncoded = encoder.encodeToString(payloadJson.getBytes(StandardCharsets.UTF_8));
+        String dataToSign = headerEncoded + "." + payloadEncoded;
+
+        // 5. 签名
+        Signature signer = Signature.getInstance("EdDSA");
+        signer.initSign(privateKey);
+        signer.update(dataToSign.getBytes(StandardCharsets.UTF_8));
+        byte[] signature = signer.sign();
+        String signatureEncoded = encoder.encodeToString(signature);
+
+        return dataToSign + "." + signatureEncoded;
+    }
+
     private WeatherVO fetchFromApi(double lon, double lat) throws Exception {
         String location = lon + "," + lat;
+        // 生成 Token
+        String token = generateQWeatherToken();
+
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(8))
                 .build();
 
-        String nowUrl = baseUrl + "/weather/now?location=" + location + "&key=" + apiKey;
-        String forecastUrl = baseUrl + "/weather/3d?location=" + location + "&key=" + apiKey;
+        // 注意：URL 绝对不能再带 &key=
+        String nowUrl = baseUrl + "/weather/now?location=" + location;
+        String forecastUrl = baseUrl + "/weather/3d?location=" + location;
 
-        // 1. 发送请求并以 InputStream 形式接收响应（核心变化）
-        HttpResponse<java.io.InputStream> nowResponse = client.send(
-                HttpRequest.newBuilder().uri(URI.create(nowUrl)).timeout(Duration.ofSeconds(10)).GET().build(),
-                HttpResponse.BodyHandlers.ofInputStream()
-        );
-        HttpResponse<java.io.InputStream> forecastResponse = client.send(
-                HttpRequest.newBuilder().uri(URI.create(forecastUrl)).timeout(Duration.ofSeconds(10)).GET().build(),
-                HttpResponse.BodyHandlers.ofInputStream()
-        );
+        // 构建带 Authorization Header 的请求
+        HttpRequest nowReq = HttpRequest.newBuilder()
+                .uri(URI.create(nowUrl))
+                .header("Authorization", "Bearer " + token)
+                .timeout(Duration.ofSeconds(10))
+                .GET().build();
 
-        // 2. 调用下面的解压工具方法转为字符串
-        String nowBody = decompressGzip(nowResponse);
-        String forecastBody = decompressGzip(forecastResponse);
+        HttpRequest forecastReq = HttpRequest.newBuilder()
+                .uri(URI.create(forecastUrl))
+                .header("Authorization", "Bearer " + token)
+                .timeout(Duration.ofSeconds(10))
+                .GET().build();
 
-        log.debug("[Weather] API now response: {}", nowBody);
-        log.debug("[Weather] API forecast response: {}", forecastBody);
+        // 获取并解压响应
+        String nowBody = decompressGzip(client.send(nowReq, HttpResponse.BodyHandlers.ofInputStream()));
+        String forecastBody = decompressGzip(client.send(forecastReq, HttpResponse.BodyHandlers.ofInputStream()));
 
+        log.debug("[Weather] API Success. Now: {}, Forecast: {}", nowBody, forecastBody);
         return parseResponse(nowBody, forecastBody);
     }
 
-    /**
-     * 处理和风天气返回的 GZIP 压缩流
-     */
     private String decompressGzip(HttpResponse<java.io.InputStream> response) throws Exception {
-        // 检查响应头是否包含 gzip
         String contentEncoding = response.headers().firstValue("Content-Encoding").orElse("");
-
         try (java.io.InputStream is = response.body()) {
             if ("gzip".equalsIgnoreCase(contentEncoding)) {
-                // 如果是 gzip 格式，使用 GZIPInputStream 解压
                 try (java.util.zip.GZIPInputStream gis = new java.util.zip.GZIPInputStream(is)) {
                     return new String(gis.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
                 }
-            } else {
-                // 如果不是压缩格式，直接读取
-                return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             }
+            return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
     }
 
-    /**
-     * 解析和风天气 API 响应 JSON，构造 WeatherVO
-     * 和风天气成功状态码为 "200"（字符串）
-     */
     private WeatherVO parseResponse(String nowBody, String forecastBody) throws Exception {
         JsonNode nowRoot = objectMapper.readTree(nowBody);
         JsonNode forecastRoot = objectMapper.readTree(forecastBody);
 
-        // 检查响应状态
-        String nowCode = nowRoot.path("code").asText();
-        if (!"200".equals(nowCode)) {
-            throw new RuntimeException("和风天气实时接口返回错误码: " + nowCode);
+        if (!"200".equals(nowRoot.path("code").asText())) {
+            throw new RuntimeException("和风接口错误: " + nowBody);
         }
 
         JsonNode now = nowRoot.path("now");
-
-        // 解析3日预报
         List<WeatherVO.DailyForecast> forecastList = new ArrayList<>();
-        String forecastCode = forecastRoot.path("code").asText();
-        if ("200".equals(forecastCode)) {
+
+        if ("200".equals(forecastRoot.path("code").asText())) {
             for (JsonNode day : forecastRoot.path("daily")) {
                 forecastList.add(WeatherVO.DailyForecast.builder()
                         .date(day.path("fxDate").asText())
@@ -167,8 +196,6 @@ public class WeatherServiceImpl implements WeatherService {
                         .text(day.path("textDay").asText())
                         .build());
             }
-        } else {
-            log.warn("[Weather] Forecast API returned code: {}", forecastCode);
         }
 
         return WeatherVO.builder()
@@ -184,31 +211,18 @@ public class WeatherServiceImpl implements WeatherService {
                 .build();
     }
 
-    /**
-     * 降级 Mock 数据：返回明月山（宜春）典型春季天气
-     * 仅在和风 API 调用失败时使用，确保前端 WeatherCard 不显示"加载失败"
-     */
     private WeatherVO buildMockWeather() {
-        log.info("[Weather] Using mock weather data for fallback");
+        log.info("[Weather] Returning fallback mock data");
         List<WeatherVO.DailyForecast> mockForecast = new ArrayList<>();
         for (int i = 1; i <= 3; i++) {
-            String date = LocalDate.now().plusDays(i).toString();
             mockForecast.add(WeatherVO.DailyForecast.builder()
-                    .date(date)
-                    .tempMax("26")
-                    .tempMin("17")
-                    .icon("104")
-                    .text("多云")
+                    .date(LocalDate.now().plusDays(i).toString())
+                    .tempMax("28").tempMin("18").icon("100").text("晴")
                     .build());
         }
         return WeatherVO.builder()
-                .temp("22")
-                .feelsLike("21")
-                .icon("104")
-                .text("多云")
-                .windDir("南风")
-                .windScale("2")
-                .humidity("68")
+                .temp("24").feelsLike("23").icon("100").text("晴")
+                .windDir("南风").windScale("3").humidity("50")
                 .obsTime(java.time.LocalDateTime.now().toString())
                 .forecast(mockForecast)
                 .build();

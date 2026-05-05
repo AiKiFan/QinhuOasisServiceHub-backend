@@ -7,19 +7,21 @@ server:
       force: true
 
 # ── 文件上传大小限制 ──────────────────────────────────────
-spring.servlet.multipart.max-file-size: 10MB
-spring.servlet.multipart.max-request-size: 30MB
-
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 30MB
   application:
     name: qinhu-oasis-backend
 
-  # ── 数据源 ──────────────────────────────────────────────
+  # ── 加载本地敏感配置（本地开发使用 application-local.yml，不提交 Git）──
+  profiles:
+    active: local
+
+  # ── 数据源（具体连接信息在 application-local.yml 中）──────
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/qinhu_oasis?useUnicode=true&characterEncoding=utf8&useUnicode=true&serverTimezone=Asia/Shanghai
-    username: root
-    password: "123456"
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -27,13 +29,9 @@ spring:
       connection-timeout: 30000
       connection-test-query: SELECT 1
 
-  # ── Redis ────────────────────────────────────────────────
+  # ── Redis（具体连接信息在 application-local.yml 中）────────
   data:
     redis:
-      host: localhost
-      port: 6379
-      password:           # 如有密码填写此处
-      database: 4
       timeout: 5000ms
       lettuce:
         pool:
@@ -63,35 +61,27 @@ mybatis:
     default-statement-timeout: 30
   type-aliases-package: com.qinhu.oasis.**.entity
 
-# ── Minio ────────────────────────────────────────────────
+# ── Minio（bucket 名称公开，密钥在 application-local.yml）──
 minio:
   endpoint: http://localhost:9000
-  access-key: root
-  secret-key: "12345678"
   buckets:
-    public-static: qosh-public-static       # 景区地图、官方配图、公共图标
-    interpreter-certs: qosh-interpreter-certs # 学生英语证书（私密）
-    ugc-images: qosh-ugc-images              # 游客攻略图、评论图、用户头像
-    sys-assets: qosh-sys-assets              # 报表导出、日志备份
+    public-static: qosh-public-static
+    interpreter-certs: qosh-interpreter-certs
+    ugc-images: qosh-ugc-images
+    sys-assets: qosh-sys-assets
 
 # ── JWT ──────────────────────────────────────────────────
 jwt:
-  secret: qinhu-oasis-jwt-secret-key-must-be-at-least-256-bits-long-for-hs256
-  expiration: 604800   # 7天，单位秒
+  expiration: 604800   # 7天，secret 在 application-local.yml 中
 
-# ── 第三方 API ────────────────────────────────────────────
-
-#third-party:
-#  hefeng-weather:
-#    key: YOUR_HEFENG_WEATHER_API_KEY
-#    base-url: https://devapi.qweather.com/v7
-#  amap:
-#    key: YOUR_AMAP_API_KEY
-#    base-url: https://restapi.amap.com/v3
-#  baidu-translate:
-#    app-id: YOUR_BAIDU_TRANSLATE_APP_ID
-#    secret-key: YOUR_BAIDU_TRANSLATE_SECRET_KEY
-#    base-url: https://fanyi-api.baidu.com/api/trans/vip/translate
+# ── 第三方 API（base-url 公开，密钥在 application-local.yml）─
+third-party:
+  hefeng-weather:
+    base-url: https://mt7dnah6du.re.qweatherapi.com/v7
+  amap:
+    base-url: https://restapi.amap.com/v3
+  baidu-translate:
+    base-url: https://fanyi-api.baidu.com/api/trans/vip/translate
 
 # ── 日志 ────────────────────────────────────────────────
 logging:
