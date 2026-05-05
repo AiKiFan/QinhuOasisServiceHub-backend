@@ -334,6 +334,89 @@ common/constant/{FeedbackType, FeedbackStatus}.java
 
 ---
 
+## 前端 Bug 修复记录
+
+### 2026-05-05：删除景点导览模块（方案 A）
+
+**问题：** 前端存在「景点导览」页面和快捷入口，但后端未实现对应的 `ScenicSpot` 模块（数据库无 `scenic_spot` 表，后端无 Controller/Service/Mapper），导致点击后显示"加载失败"。
+
+**根因：** 前端代码由 AI 自动生成时，假设了景点功能已存在，未与后端设计对齐。
+
+**修复方案：** 删除所有景点相关的前端代码。
+
+**修改文件：**
+- `src/pages/scenic/` - 删除整个目录（含 list.vue、detail.vue）
+- `src/api/scenic.js` - 删除景点 API 文件
+- `src/pages/index/index.vue` - 移除「景点导览」快捷入口、景点推荐区域及相关样式
+
+**保留内容：**
+- 首页快捷入口保留 6 个：餐厅排行、餐厅列表、译员服务、停车场、投诉建议、个人中心
+- 首页不再包含景点推荐区域
+
+---
+
+### 2026-05-05：餐厅详情页导入错误修复
+
+**问题：** 点击餐厅排行进入详情页时显示"连接服务器超时"，Console 报错 `SyntaxError: The requested module '/src/utils/favorites.js' does not provide an export named 'isFavorite'`
+
+**根因：** `detail.vue` 第 12 行导入函数名写错：
+```js
+// ❌ 写错
+import { isFavorite, ... } from '@/utils/favorites'
+// ✅ 实际导出名是 isFavorited（多了一个 d）
+```
+
+**修复：** 将导入语句改为重命名方式避免与本地变量冲突：
+```js
+import { isFavorited as checkIsFavorited, ... } from '@/utils/favorites'
+```
+
+---
+
+### 2026-05-05：API 基础路径配置修复
+
+**问题：** H5 模式下请求 `/api/restaurants/rank` 返回 `ERR_CONNECTION_TIMED_OUT`
+
+**根因：** `manifest.json` 中配置的 proxy target 为错误的局域网 IP `http://10.220.119.171:8080`
+
+**修复：** 
+- `src/utils/request.js` - BASE_URL 直接硬编码为 `http://localhost:8080/api`
+- `src/manifest.json` - 修正 proxy target 为 `http://localhost:8080`
+
+---
+
+### 2026-05-05：异常状态重试后无法返回上一页
+
+**问题：** 餐厅详情页加载失败状态下，点击"重新加载"按钮后侧滑返回手势失效
+
+**根因：** 错误状态使用 `<button>` 组件，小程序环境中会消耗触摸事件上下文，干扰手势识别
+
+**修复：** `src/pages/restaurant/detail.vue` - 将重试按钮从 `<button>` 改为 `<view>`
+
+---
+
+### 2026-05-05：停车场数据缺失（字段映射错误）
+
+**问题：** 停车场列表页显示"暂无数据"，但后端数据库有 4 条初始数据
+
+**根因：** 前端期望的字段名与后端返回不一致：
+
+| 前端期望 | 后端实际返回 |
+|---------|-------------|
+| `name` | `displayName` |
+| `address` | `locationDesc` |
+| `available` | `availableCount` |
+| `capacity` | `totalCapacity` |
+| `price` | `hourlyRate` |
+
+**修复：**
+- `src/pages/parking/list.vue` - 修正所有字段引用
+- `src/pages/parking/detail.vue` - 修正所有字段引用，新增类型标签显示
+
+**后端数据：** `parking_space` 表已有 4 条初始数据（A 区/B 区/残障专用/新能源充电）
+
+---
+
 ## 关键设计决策记录
 
 | 决策 | 选择 | 原因 |
