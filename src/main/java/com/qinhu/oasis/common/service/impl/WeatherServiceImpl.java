@@ -95,29 +95,47 @@ public class WeatherServiceImpl implements WeatherService {
                 .connectTimeout(Duration.ofSeconds(8))
                 .build();
 
-        // 并行请求：实时天气 & 3日预报
         String nowUrl = baseUrl + "/weather/now?location=" + location + "&key=" + apiKey;
         String forecastUrl = baseUrl + "/weather/3d?location=" + location + "&key=" + apiKey;
 
-        HttpRequest nowReq = HttpRequest.newBuilder()
-                .uri(URI.create(nowUrl))
-                .timeout(Duration.ofSeconds(10))
-                .GET()
-                .build();
-        HttpRequest forecastReq = HttpRequest.newBuilder()
-                .uri(URI.create(forecastUrl))
-                .timeout(Duration.ofSeconds(10))
-                .GET()
-                .build();
+        // 1. 发送请求并以 InputStream 形式接收响应（核心变化）
+        HttpResponse<java.io.InputStream> nowResponse = client.send(
+                HttpRequest.newBuilder().uri(URI.create(nowUrl)).timeout(Duration.ofSeconds(10)).GET().build(),
+                HttpResponse.BodyHandlers.ofInputStream()
+        );
+        HttpResponse<java.io.InputStream> forecastResponse = client.send(
+                HttpRequest.newBuilder().uri(URI.create(forecastUrl)).timeout(Duration.ofSeconds(10)).GET().build(),
+                HttpResponse.BodyHandlers.ofInputStream()
+        );
 
-        // 顺序发送（免费版 API 无并发限制要求）
-        String nowBody = client.send(nowReq, HttpResponse.BodyHandlers.ofString()).body();
-        String forecastBody = client.send(forecastReq, HttpResponse.BodyHandlers.ofString()).body();
+        // 2. 调用下面的解压工具方法转为字符串
+        String nowBody = decompressGzip(nowResponse);
+        String forecastBody = decompressGzip(forecastResponse);
 
         log.debug("[Weather] API now response: {}", nowBody);
         log.debug("[Weather] API forecast response: {}", forecastBody);
 
         return parseResponse(nowBody, forecastBody);
+    }
+
+    /**
+     * 处理和风天气返回的 GZIP 压缩流
+     */
+    private String decompressGzip(HttpResponse<java.io.InputStream> response) throws Exception {
+        // 检查响应头是否包含 gzip
+        String contentEncoding = response.headers().firstValue("Content-Encoding").orElse("");
+
+        try (java.io.InputStream is = response.body()) {
+            if ("gzip".equalsIgnoreCase(contentEncoding)) {
+                // 如果是 gzip 格式，使用 GZIPInputStream 解压
+                try (java.util.zip.GZIPInputStream gis = new java.util.zip.GZIPInputStream(is)) {
+                    return new String(gis.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                }
+            } else {
+                // 如果不是压缩格式，直接读取
+                return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
     }
 
     /**
