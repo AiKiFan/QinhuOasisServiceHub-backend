@@ -57,4 +57,12 @@ public interface SysUserMapper {
      * @return 影响行数
      */
     int updateRole(@Param("id") Long id, @Param("role") Integer role);
+
+    /**
+     * 更新用户基本信息（昵称、邮箱、头像）
+     *
+     * @param user 用户实体（必须包含 id）
+     * @return 影响行数
+     */
+    int updateById(SysUser user);
 }

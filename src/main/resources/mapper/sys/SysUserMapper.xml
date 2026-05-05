@@ -56,4 +56,13 @@
         UPDATE sys_user SET role = #{role} WHERE id = #{id}
     </update>
 
+    <update id="updateById">
+        UPDATE sys_user
+        SET nickname     = #{nickname},
+            email        = #{email},
+            avatar       = #{avatar},
+            update_time  = NOW()
+        WHERE id = #{id}
+    </update>
+
 </mapper>

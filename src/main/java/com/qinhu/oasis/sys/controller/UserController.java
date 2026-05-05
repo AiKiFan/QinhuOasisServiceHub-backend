@@ -6,9 +6,12 @@ import com.qinhu.oasis.common.result.Result;
 import com.qinhu.oasis.common.result.ResultCode;
 import com.qinhu.oasis.common.security.LoginUser;
 import com.qinhu.oasis.sys.dto.UserInfoVO;
+import com.qinhu.oasis.sys.dto.UpdateUserReq;
 import com.qinhu.oasis.sys.service.SysUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -38,5 +41,22 @@ public class UserController {
             throw new BizException(ResultCode.UNAUTHORIZED, i18nUtil.msg(ResultCode.UNAUTHORIZED));
         }
         return Result.ok(sysUserService.getUserInfo(userId));
+    }
+
+    /**
+     * 更新当前登录用户信息
+     * <p>支持更新昵称、邮箱、头像（需登录）</p>
+     *
+     * @param req 更新请求参数
+     * @return 更新后的用户信息视图对象
+     */
+    @PutMapping("/me")
+    public Result<UserInfoVO> updateMe(@RequestBody UpdateUserReq req) {
+        Long userId = LoginUser.getUserId();
+        if (userId == null) {
+            throw new BizException(ResultCode.UNAUTHORIZED, i18nUtil.msg(ResultCode.UNAUTHORIZED));
+        }
+        UserInfoVO updated = sysUserService.updateUserInfo(userId, req);
+        return Result.ok(updated);
     }
 }

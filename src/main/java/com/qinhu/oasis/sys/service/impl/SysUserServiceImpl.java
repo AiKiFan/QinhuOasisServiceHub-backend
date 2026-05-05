@@ -10,6 +10,7 @@ import com.qinhu.oasis.sys.dto.LoginReq;
 import com.qinhu.oasis.sys.dto.LoginVO;
 import com.qinhu.oasis.sys.dto.RegisterReq;
 import com.qinhu.oasis.sys.dto.UserInfoVO;
+import com.qinhu.oasis.sys.dto.UpdateUserReq;
 import com.qinhu.oasis.sys.entity.SysUser;
 import com.qinhu.oasis.sys.mapper.SysUserMapper;
 import com.qinhu.oasis.sys.service.SysUserService;
@@ -99,6 +100,46 @@ public class SysUserServiceImpl implements SysUserService {
             throw new BizException(ResultCode.USER_NOT_EXIST, i18nUtil.msg(ResultCode.USER_NOT_EXIST));
         }
 
+        UserInfoVO vo = new UserInfoVO();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setNickname(user.getNickname());
+        vo.setPhone(user.getPhone());
+        vo.setEmail(user.getEmail());
+        vo.setAvatar(user.getAvatar());
+        vo.setRole(user.getRole());
+        vo.setLocale(user.getLocale());
+        vo.setCreateTime(user.getCreateTime());
+        return vo;
+    }
+
+    @Override
+    public UserInfoVO updateUserInfo(Long userId, UpdateUserReq req) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || user.getDeleted() == 1) {
+            throw new BizException(ResultCode.USER_NOT_EXIST, i18nUtil.msg(ResultCode.USER_NOT_EXIST));
+        }
+
+        // 昵称必填校验
+        if (req.getNickname() == null || req.getNickname().isBlank()) {
+            throw new BizException(ResultCode.PARAM_ERROR, "昵称不能为空");
+        }
+        // 邮箱必填校验
+        if (req.getEmail() == null || req.getEmail().isBlank()) {
+            throw new BizException(ResultCode.PARAM_ERROR, "邮箱不能为空");
+        }
+
+        // 更新字段
+        user.setNickname(req.getNickname().trim());
+        user.setEmail(req.getEmail().trim());
+        if (req.getAvatar() != null) {
+            user.setAvatar(req.getAvatar().trim());
+        }
+
+        sysUserMapper.updateById(user);
+        log.info("User profile updated: userId={}, nickname={}, email={}", userId, user.getNickname(), user.getEmail());
+
+        // 返回更新后的用户信息
         UserInfoVO vo = new UserInfoVO();
         vo.setId(user.getId());
         vo.setUsername(user.getUsername());

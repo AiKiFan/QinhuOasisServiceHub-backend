@@ -1,9 +1,6 @@
 package com.qinhu.oasis.sys.service;
 
-import com.qinhu.oasis.sys.dto.LoginReq;
-import com.qinhu.oasis.sys.dto.LoginVO;
-import com.qinhu.oasis.sys.dto.RegisterReq;
-import com.qinhu.oasis.sys.dto.UserInfoVO;
+import com.qinhu.oasis.sys.dto.*;
 
 /**
  * 用户业务服务接口
@@ -38,4 +35,14 @@ public interface SysUserService {
      * @return 用户信息视图对象
      */
     UserInfoVO getUserInfo(Long userId);
+
+    /**
+     * 更新当前登录用户信息
+     * <p>支持更新昵称、邮箱、头像；昵称和邮箱不能为空</p>
+     *
+     * @param userId 当前登录用户 ID
+     * @param req    更新请求参数
+     * @return 更新后的用户信息视图对象
+     */
+    UserInfoVO updateUserInfo(Long userId, UpdateUserReq req);
 }
