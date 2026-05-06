@@ -75,4 +75,13 @@
         WHERE id = #{id}
     </update>
 
+    <select id="selectByIds" resultType="com.qinhu.oasis.interpreter.entity.InterpreterProfile">
+        SELECT * FROM interpreter_profile
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND status = 1
+    </select>
+
 </mapper>

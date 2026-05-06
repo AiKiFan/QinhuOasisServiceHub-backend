@@ -6,6 +6,8 @@ import com.qinhu.oasis.interpreter.dto.BookInterpreterReq;
 import com.qinhu.oasis.interpreter.dto.InterpreterOrderVO;
 import com.qinhu.oasis.interpreter.dto.InterpreterVO;
 
+import java.util.List;
+
 /**
  * 译员业务服务接口
  *
@@ -94,4 +96,12 @@ public interface InterpreterService {
      * @param adminId      操作管理员 ID
      */
     void adminReviewProfile(Long profileId, boolean approve, String rejectReason, Long adminId);
+
+    /**
+     * 根据ID列表获取译员列表（用于收藏功能）
+     *
+     * @param ids 译员档案ID列表
+     * @return 译员列表
+     */
+    List<InterpreterVO> getInterpretersByIds(List<Long> ids);
 }

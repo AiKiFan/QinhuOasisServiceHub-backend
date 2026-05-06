@@ -109,6 +109,15 @@ public class RestaurantServiceImpl implements RestaurantService {
         log.info("Initialized restaurant rank ZSet with {} entries", all.size());
     }
 
+    @Override
+    public List<RestaurantListVO> getRestaurantsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Restaurant> restaurants = restaurantMapper.selectByIds(ids);
+        return restaurants.stream().map(this::toListVO).collect(Collectors.toList());
+    }
+
     // ───────────── 私有转换方法 ─────────────
 
     private boolean isEnglish() {

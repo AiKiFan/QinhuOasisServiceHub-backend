@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 /**
  * 译员业务服务实现
@@ -42,6 +43,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class InterpreterServiceImpl implements InterpreterService {
 
+    @SuppressWarnings("deprecation")
     private static final Snowflake SNOWFLAKE = IdUtil.createSnowflake(1, 2);
 
     private final InterpreterProfileMapper profileMapper;
@@ -235,5 +237,14 @@ public class InterpreterServiceImpl implements InterpreterService {
         vo.setRejectReason(profile.getRejectReason());
         vo.setCreateTime(profile.getCreateTime());
         return vo;
+    }
+
+    @Override
+    public List<InterpreterVO> getInterpretersByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<InterpreterProfile> profiles = profileMapper.selectByIds(ids);
+        return profiles.stream().map(this::toVO).collect(Collectors.toList());
     }
 }

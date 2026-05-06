@@ -85,4 +85,12 @@ public interface InterpreterProfileMapper {
     int updateStatus(@Param("id") Long id,
                      @Param("status") Integer status,
                      @Param("rejectReason") String rejectReason);
+
+    /**
+     * 根据ID列表查询译员档案（用于收藏功能）
+     *
+     * @param ids 档案ID列表
+     * @return 译员档案列表
+     */
+    List<InterpreterProfile> selectByIds(@Param("ids") List<Long> ids);
 }

@@ -46,4 +46,12 @@ public interface RestaurantService {
      * <p>由 {@link com.qinhu.oasis.common.init.RedisDataInitializer} 在应用启动时调用</p>
      */
     void initRankToRedis();
+
+    /**
+     * 根据ID列表获取餐厅列表（用于收藏功能）
+     *
+     * @param ids 餐厅ID列表
+     * @return 餐厅列表
+     */
+    List<RestaurantListVO> getRestaurantsByIds(List<Long> ids);
 }
