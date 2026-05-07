@@ -92,6 +92,12 @@ public class InterpreterServiceImpl implements InterpreterService {
             throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
         }
         InterpreterVO vo = toVO(profile);
+        // 关联 sys_user 获取头像和昵称
+        var user = sysUserMapper.selectById(profile.getUserId());
+        if (user != null) {
+            vo.setAvatar(user.getAvatar());
+            vo.setNickname(user.getNickname());
+        }
         vo.setDisplayIntroduction(resolveIntroduction(vo));
         return vo;
     }
@@ -245,6 +251,49 @@ public class InterpreterServiceImpl implements InterpreterService {
             return List.of();
         }
         List<InterpreterProfile> profiles = profileMapper.selectByIds(ids);
-        return profiles.stream().map(this::toVO).collect(Collectors.toList());
+        return profiles.stream().map(profile -> {
+            InterpreterVO vo = toVO(profile);
+            var user = sysUserMapper.selectById(profile.getUserId());
+            if (user != null) {
+                vo.setAvatar(user.getAvatar());
+                vo.setNickname(user.getNickname());
+            }
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    public InterpreterVO getMyProfile(Long userId) {
+        InterpreterProfile profile = profileMapper.selectByUserId(userId);
+        return toVO(profile);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public InterpreterVO updateMyApplication(ApplyInterpreterReq req, Long userId) {
+        InterpreterProfile profile = profileMapper.selectByUserId(userId);
+        if (profile == null) {
+            throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+        }
+        if (profile.getStatus() != InterpreterStatus.PENDING && profile.getStatus() != InterpreterStatus.REJECTED) {
+            throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
+        }
+        // 被拒绝后重新提交：将状态重置为待审核
+        if (profile.getStatus() == InterpreterStatus.REJECTED) {
+            profile.setStatus(InterpreterStatus.PENDING);
+        }
+        profile.setRealName(req.getRealName());
+        profile.setStudentId(req.getStudentId());
+        profile.setSchool(req.getSchool());
+        profile.setEnglishLevel(req.getEnglishLevel());
+        profile.setCertUrl(req.getCertUrl());
+        profile.setCertNo(req.getCertNo());
+        profile.setIntroduction(req.getIntroduction());
+        profile.setIntroductionEn(req.getIntroductionEn());
+        profile.setServiceTypes(req.getServiceTypes());
+        profile.setHourlyRate(req.getHourlyRate());
+        profileMapper.updateById(profile);
+        log.info("Interpreter application updated: profileId={}, userId={}", profile.getId(), userId);
+        return toVO(profileMapper.selectById(profile.getId()));
     }
 }

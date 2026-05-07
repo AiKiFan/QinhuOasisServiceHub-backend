@@ -100,6 +100,29 @@ public class InterpreterProfileController {
     }
 
     /**
+     * 获取当前用户的译员申请档案（需登录）
+     *
+     * @return 译员档案 VO，未申请过时返回 null
+     */
+    @GetMapping("/interpreter/my-profile")
+    public Result<InterpreterVO> getMyProfile() {
+        Long userId = requireLogin();
+        return Result.ok(interpreterService.getMyProfile(userId));
+    }
+
+    /**
+     * 更新当前用户的译员申请（仅待审核状态可修改，需登录）
+     *
+     * @param req 申请参数
+     * @return 更新后的译员档案 VO
+     */
+    @PostMapping("/interpreter/my-application")
+    public Result<InterpreterVO> updateMyApplication(@Valid @RequestBody ApplyInterpreterReq req) {
+        Long userId = requireLogin();
+        return Result.ok(interpreterService.updateMyApplication(req, userId));
+    }
+
+    /**
      * 管理员分页查询所有译员档案（需管理员角色）
      *
      * @param status 状态筛选（不传则查全部）

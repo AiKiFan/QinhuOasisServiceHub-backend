@@ -58,12 +58,10 @@ public class MinioBucketInitializer implements CommandLineRunner {
     public void run(String... args) {
         log.info("========== MinIO Bucket 初始化开始 ==========");
         try {
-            // 公开读取 bucket（游客图片、静态资源）
+            // 公开读取 bucket（游客图片、译员证书、静态资源）
             createBucketWithPublicRead(ugcImagesBucket, "游客攻略图、评论晒图");
             createBucketWithPublicRead(publicStaticBucket, "景区地图、官方攻略配图");
-
-            // 私密 bucket（译员证书、系统资产）
-            createPrivateBucket(interpreterCertsBucket, "译员资质证书");
+            createBucketWithPublicRead(interpreterCertsBucket, "译员资质证书");
             createPrivateBucket(sysAssetsBucket, "报表导出、日志备份");
 
             log.info("========== MinIO Bucket 初始化完成 ==========");

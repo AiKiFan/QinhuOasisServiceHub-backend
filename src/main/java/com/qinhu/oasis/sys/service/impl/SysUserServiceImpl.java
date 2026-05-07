@@ -124,20 +124,19 @@ public class SysUserServiceImpl implements SysUserService {
         if (req.getNickname() == null || req.getNickname().isBlank()) {
             throw new BizException(ResultCode.PARAM_ERROR, "昵称不能为空");
         }
-        // 邮箱必填校验
-        if (req.getEmail() == null || req.getEmail().isBlank()) {
-            throw new BizException(ResultCode.PARAM_ERROR, "邮箱不能为空");
-        }
 
-        // 更新字段
+        // 更新字段（邮箱/头像为空时保留原值）
         user.setNickname(req.getNickname().trim());
-        user.setEmail(req.getEmail().trim());
-        if (req.getAvatar() != null) {
+        if (req.getEmail() != null && !req.getEmail().isBlank()) {
+            user.setEmail(req.getEmail().trim());
+        }
+        if (req.getAvatar() != null && !req.getAvatar().isBlank()) {
             user.setAvatar(req.getAvatar().trim());
         }
 
         sysUserMapper.updateById(user);
-        log.info("User profile updated: userId={}, nickname={}, email={}", userId, user.getNickname(), user.getEmail());
+        log.info("User profile updated: userId={}, nickname={}, email={}, hasAvatar={}",
+                userId, user.getNickname(), user.getEmail(), req.getAvatar() != null);
 
         // 返回更新后的用户信息
         UserInfoVO vo = new UserInfoVO();

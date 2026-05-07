@@ -65,4 +65,11 @@
         WHERE id = #{id}
     </update>
 
+    <update id="updatePassword">
+        UPDATE sys_user
+        SET password    = #{password},
+            update_time  = NOW()
+        WHERE id = #{id}
+    </update>
+
 </mapper>

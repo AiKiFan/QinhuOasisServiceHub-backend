@@ -84,4 +84,21 @@
         AND status = 1
     </select>
 
+    <update id="updateById">
+        UPDATE interpreter_profile
+        SET real_name       = #{realName},
+            student_id     = #{studentId},
+            school         = #{school},
+            english_level  = #{englishLevel},
+            cert_url       = #{certUrl},
+            cert_no        = #{certNo},
+            introduction   = #{introduction},
+            introduction_en = #{introductionEn},
+            service_types  = #{serviceTypes},
+            hourly_rate    = #{hourlyRate},
+            status         = #{status},
+            update_time    = NOW()
+        WHERE id = #{id}
+    </update>
+
 </mapper>

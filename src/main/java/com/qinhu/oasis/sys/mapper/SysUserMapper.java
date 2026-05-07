@@ -65,4 +65,13 @@ public interface SysUserMapper {
      * @return 影响行数
      */
     int updateById(SysUser user);
+
+    /**
+     * 更新用户密码
+     *
+     * @param id       用户 ID
+     * @param password 新密码（BCrypt 哈希）
+     * @return 影响行数
+     */
+    int updatePassword(@Param("id") Long id, @Param("password") String password);
 }

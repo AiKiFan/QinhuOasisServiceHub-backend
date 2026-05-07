@@ -104,4 +104,21 @@ public interface InterpreterService {
      * @return 译员列表
      */
     List<InterpreterVO> getInterpretersByIds(List<Long> ids);
+
+    /**
+     * 获取当前用户的译员申请档案（用于查看申请状态）
+     *
+     * @param userId 用户 ID
+     * @return 译员档案 VO，不存在时返回 null
+     */
+    InterpreterVO getMyProfile(Long userId);
+
+    /**
+     * 更新译员申请信息（仅待审核状态可修改）
+     *
+     * @param req    申请参数
+     * @param userId 用户 ID
+     * @return 更新后的译员档案 VO
+     */
+    InterpreterVO updateMyApplication(ApplyInterpreterReq req, Long userId);
 }

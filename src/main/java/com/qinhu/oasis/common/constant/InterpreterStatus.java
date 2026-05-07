@@ -16,6 +16,4 @@ public final class InterpreterStatus {
     public static final int APPROVED = 1;
     /** 已拒绝 */
     public static final int REJECTED = 2;
-    /** 暂停接单 */
-    public static final int SUSPENDED = 3;
 }

@@ -93,4 +93,12 @@ public interface InterpreterProfileMapper {
      * @return 译员档案列表
      */
     List<InterpreterProfile> selectByIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 更新译员档案（用于申请者修改待审核申请）
+     *
+     * @param profile 档案实体（必须包含 id）
+     * @return 影响行数
+     */
+    int updateById(InterpreterProfile profile);
 }
