@@ -78,6 +78,33 @@ public interface InterpreterService {
     PageResult<InterpreterOrderVO> listMyOrders(Long userId, int page, int size);
 
     /**
+     * 译员查看收到的订单列表（译员端）
+     *
+     * @param interpreterId 译员用户 ID
+     * @param status        状态筛选（null=全部）
+     * @param page          页码
+     * @param size          每页条数
+     * @return 分页结果
+     */
+    PageResult<InterpreterOrderVO> listReceivedOrders(Long interpreterId, Integer status, int page, int size);
+
+    /**
+     * 译员拒绝订单
+     *
+     * @param orderId 订单 ID
+     * @param userId  译员用户 ID
+     */
+    void rejectOrder(Long orderId, Long userId);
+
+    /**
+     * 译员完成服务
+     *
+     * @param orderId 订单 ID
+     * @param userId  译员用户 ID
+     */
+    void completeOrder(Long orderId, Long userId);
+
+    /**
      * 管理员分页查询译员档案（可按状态筛选）
      *
      * @param status 状态筛选（null=全部）

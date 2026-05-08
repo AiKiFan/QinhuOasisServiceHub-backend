@@ -86,6 +86,49 @@ public class InterpreterOrderController {
         return Result.ok(interpreterService.listMyOrders(userId, page, size));
     }
 
+    /**
+     * 译员查看收到的订单列表（需登录，译员角色）
+     *
+     * @param status 状态筛选（不传则查全部）
+     * @param page   页码，默认1
+     * @param size   每页条数，默认10
+     * @return 分页结果
+     */
+    @GetMapping("/received")
+    public Result<PageResult<InterpreterOrderVO>> listReceivedOrders(
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long userId = requireLogin();
+        return Result.ok(interpreterService.listReceivedOrders(userId, status, page, size));
+    }
+
+    /**
+     * 译员拒绝订单（需登录，且必须是该订单指定的译员）
+     *
+     * @param id 订单 ID
+     * @return 操作结果
+     */
+    @PostMapping("/{id}/reject")
+    public Result<Void> rejectOrder(@PathVariable Long id) {
+        Long userId = requireLogin();
+        interpreterService.rejectOrder(id, userId);
+        return Result.ok(null);
+    }
+
+    /**
+     * 译员完成服务（需登录，且必须是该订单指定的译员）
+     *
+     * @param id 订单 ID
+     * @return 操作结果
+     */
+    @PostMapping("/{id}/complete")
+    public Result<Void> completeOrder(@PathVariable Long id) {
+        Long userId = requireLogin();
+        interpreterService.completeOrder(id, userId);
+        return Result.ok(null);
+    }
+
     // ───────────── 私有辅助方法 ─────────────
 
     private Long requireLogin() {

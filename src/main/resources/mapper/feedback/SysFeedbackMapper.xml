@@ -40,7 +40,7 @@
             <if test="status != null">f.status = #{status}</if>
             <if test="feedbackType != null">AND f.feedback_type = #{feedbackType}</if>
         </where>
-        ORDER BY f.create_time DESC
+        ORDER BY COALESCE(f.reply_time, f.create_time) DESC, f.create_time DESC
         LIMIT #{offset}, #{size}
     </select>
 
@@ -64,7 +64,7 @@
         LEFT JOIN sys_user u ON f.user_id = u.id
         LEFT JOIN sys_user h ON f.handler_id = h.id
         WHERE f.user_id = #{userId}
-        ORDER BY f.create_time DESC
+        ORDER BY COALESCE(f.reply_time, f.create_time) DESC, f.create_time DESC
         LIMIT #{offset}, #{size}
     </select>
 

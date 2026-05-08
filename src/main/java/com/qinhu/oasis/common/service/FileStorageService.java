@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Minio 文件存储服务
@@ -45,7 +46,7 @@ public class FileStorageService {
      *
      * @param file   上传的文件（仅允许 JPEG/PNG/WebP/GIF）
      * @param bucket Minio Bucket 名称
-     * @return 文件访问 URL（格式：{endpoint}/{bucket}/{yyyyMMdd}/{uuid}.{ext}）
+     * @return 文件访问 URL（预签名 URL，有效期 7 天）
      */
     public String uploadImage(MultipartFile file, String bucket) {
         String contentType = file.getContentType();
@@ -67,13 +68,21 @@ public class FileStorageService {
                             .contentType(contentType)
                             .build()
             );
+
+            // 生成预签名 URL（有效期 7 天）
+            return minioClient.getPresignedObjectUrl(
+                    io.minio.GetPresignedObjectUrlArgs.builder()
+                            .bucket(bucket)
+                            .object(objectName)
+                            .method(io.minio.http.Method.GET)
+                            .expiry(7, TimeUnit.DAYS)
+                            .build()
+            );
         } catch (Exception e) {
             log.error("Minio upload failed: bucket={}, object={}", bucket, objectName, e);
             throw new BizException(ResultCode.FILE_UPLOAD_FAIL,
                     i18nUtil.msg(ResultCode.FILE_UPLOAD_FAIL));
         }
-
-        return endpoint + "/" + bucket + "/" + objectName;
     }
 
     // ───────────── 私有辅助方法 ─────────────

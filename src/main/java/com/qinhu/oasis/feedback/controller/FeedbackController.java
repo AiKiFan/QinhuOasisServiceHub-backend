@@ -110,11 +110,10 @@ public class FeedbackController {
      * 当前用户更新本人投诉建议（仅 PENDING）
      */
     @PutMapping("/feedback/{id}")
-    public Result<Void> updateMy(@PathVariable Long id,
-                                 @Valid @RequestBody UpdateFeedbackReq req) {
+    public Result<FeedbackVO> updateMy(@PathVariable Long id,
+                                       @Valid @RequestBody UpdateFeedbackReq req) {
         Long userId = requireLoginUser();
-        feedbackService.updateFeedback(id, req, userId);
-        return Result.ok(null);
+        return Result.ok(feedbackService.updateFeedback(id, req, userId));
     }
 
     /**

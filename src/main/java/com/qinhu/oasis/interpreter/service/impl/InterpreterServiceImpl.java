@@ -113,6 +113,14 @@ public class InterpreterServiceImpl implements InterpreterService {
             throw new BizException(ResultCode.INTERPRETER_NOT_APPROVED,
                     i18nUtil.msg(ResultCode.INTERPRETER_NOT_APPROVED));
         }
+
+        // 验证预约时间至少提前一天
+        java.time.LocalDate tomorrow = java.time.LocalDate.now().plusDays(1);
+        java.time.LocalDate startDay = req.getStartTime().toLocalDate();
+        if (startDay.isBefore(tomorrow)) {
+            throw new BizException(ResultCode.PARAM_ERROR, i18nUtil.msg(ResultCode.PARAM_ERROR));
+        }
+
         long hours = ChronoUnit.HOURS.between(req.getStartTime(), req.getEndTime());
         if (hours <= 0) {
             throw new BizException(ResultCode.PARAM_ERROR, i18nUtil.msg(ResultCode.PARAM_ERROR));
@@ -180,6 +188,53 @@ public class InterpreterServiceImpl implements InterpreterService {
         long total = orderMapper.countByUserId(userId);
         List<InterpreterOrderVO> list = orderMapper.selectByUserId(userId, offset, size);
         return PageResult.of(total, list);
+    }
+
+    @Override
+    public PageResult<InterpreterOrderVO> listReceivedOrders(Long interpreterId, Integer status, int page, int size) {
+        int offset = (page - 1) * size;
+        List<InterpreterOrderVO> list = orderMapper.selectByInterpreterId(interpreterId, offset, size);
+        if (status != null) {
+            list = list.stream().filter(o -> o.getStatus().equals(status)).collect(Collectors.toList());
+        }
+        long total = status == null
+                ? orderMapper.countByInterpreterId(interpreterId)
+                : list.size();
+        return PageResult.of(total, list);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectOrder(Long orderId, Long userId) {
+        BizOrder order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new BizException(ResultCode.ORDER_NOT_EXIST, i18nUtil.msg(ResultCode.ORDER_NOT_EXIST));
+        }
+        if (!userId.equals(order.getInterpreterId())) {
+            throw new BizException(ResultCode.FORBIDDEN, i18nUtil.msg(ResultCode.FORBIDDEN));
+        }
+        if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.ACCEPTED) {
+            throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
+        }
+        orderMapper.updateStatus(orderId, OrderStatus.CANCELLED);
+        log.info("Interpreter order rejected: orderId={}, interpreterId={}", orderId, userId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void completeOrder(Long orderId, Long userId) {
+        BizOrder order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new BizException(ResultCode.ORDER_NOT_EXIST, i18nUtil.msg(ResultCode.ORDER_NOT_EXIST));
+        }
+        if (!userId.equals(order.getInterpreterId())) {
+            throw new BizException(ResultCode.FORBIDDEN, i18nUtil.msg(ResultCode.FORBIDDEN));
+        }
+        if (order.getStatus() != OrderStatus.ACCEPTED && order.getStatus() != OrderStatus.IN_PROGRESS) {
+            throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
+        }
+        orderMapper.updateStatus(orderId, OrderStatus.COMPLETED);
+        log.info("Interpreter order completed: orderId={}, interpreterId={}", orderId, userId);
     }
 
     @Override

@@ -1,6 +1,5 @@
 package com.qinhu.oasis.interpreter.dto;
 
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -36,7 +35,6 @@ public class BookInterpreterReq {
     private LocalDateTime startTime;
 
     @NotNull
-    @Future
     private LocalDateTime endTime;
 
     @Size(max = 500)

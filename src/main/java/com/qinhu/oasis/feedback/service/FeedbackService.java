@@ -56,8 +56,10 @@ public interface FeedbackService {
 
     /**
      * 当前用户更新本人投诉建议（仅 PENDING）
+     *
+     * @return 更新后的反馈详情
      */
-    void updateFeedback(Long feedbackId, UpdateFeedbackReq req, Long userId);
+    FeedbackVO updateFeedback(Long feedbackId, UpdateFeedbackReq req, Long userId);
 
     /**
      * 当前用户追加回复（仅 PROCESSING）

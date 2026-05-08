@@ -71,7 +71,14 @@ public class FeedbackServiceImpl implements FeedbackService {
         if (existing.getStatus() == FeedbackStatus.RESOLVED || existing.getStatus() == FeedbackStatus.CLOSED) {
             throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
         }
-        feedbackMapper.updateReply(feedbackId, req.getReplyContent(), req.getStatus(), adminId, LocalDateTime.now());
+
+        // 追加管理员回复（而不是覆盖）
+        String prev = existing.getReplyContent() == null ? "" : existing.getReplyContent();
+        String separator = prev.isEmpty() ? "" : "\n---\n";
+        String timestamp = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        String fullReply = prev + separator + "[" + timestamp + "] [管理员] " + req.getReplyContent();
+
+        feedbackMapper.updateReply(feedbackId, fullReply, req.getStatus(), adminId, LocalDateTime.now());
         log.info("Feedback replied: id={}, newStatus={}, adminId={}", feedbackId, req.getStatus(), adminId);
     }
 
@@ -90,7 +97,7 @@ public class FeedbackServiceImpl implements FeedbackService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateFeedback(Long feedbackId, UpdateFeedbackReq req, Long userId) {
+    public FeedbackVO updateFeedback(Long feedbackId, UpdateFeedbackReq req, Long userId) {
         FeedbackVO existing = requireOwned(feedbackId, userId);
         if (existing.getStatus() == null || existing.getStatus() != FeedbackStatus.PENDING) {
             throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
@@ -99,6 +106,7 @@ public class FeedbackServiceImpl implements FeedbackService {
                 ? JSONUtil.toJsonStr(req.getImages()) : null;
         feedbackMapper.updateUserFields(feedbackId, req.getTitle(), req.getContent(), images, req.getContact());
         log.info("Feedback updated by user: id={}, userId={}", feedbackId, userId);
+        return feedbackMapper.selectById(feedbackId);
     }
 
     @Override
@@ -110,7 +118,8 @@ public class FeedbackServiceImpl implements FeedbackService {
         }
         String prev = existing.getReplyContent() == null ? "" : existing.getReplyContent();
         String separator = prev.isEmpty() ? "" : "\n---\n";
-        String appended = prev + separator + "[" + LocalDateTime.now() + "] [用户追加] " + req.getReplyContent();
+        String timestamp = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        String appended = prev + separator + "[" + timestamp + "] [用户] " + req.getReplyContent();
         feedbackMapper.appendReplyContent(feedbackId, appended, FeedbackStatus.PROCESSING);
         log.info("Feedback user-reply appended: id={}, userId={}", feedbackId, userId);
     }
