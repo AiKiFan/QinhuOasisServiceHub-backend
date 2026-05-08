@@ -102,8 +102,11 @@ public class FeedbackServiceImpl implements FeedbackService {
         if (existing.getStatus() == null || existing.getStatus() != FeedbackStatus.PENDING) {
             throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
         }
-        String images = (req.getImages() != null && !req.getImages().isEmpty())
-                ? JSONUtil.toJsonStr(req.getImages()) : null;
+        // 如果前端未提供图片列表，保留原有图片（避免误删）
+        String images = existing.getImages();
+        if (req.getImages() != null && !req.getImages().isEmpty()) {
+            images = JSONUtil.toJsonStr(req.getImages());
+        }
         feedbackMapper.updateUserFields(feedbackId, req.getTitle(), req.getContent(), images, req.getContact());
         log.info("Feedback updated by user: id={}, userId={}", feedbackId, userId);
         return feedbackMapper.selectById(feedbackId);

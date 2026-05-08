@@ -39,4 +39,8 @@ public class BookInterpreterReq {
 
     @Size(max = 500)
     private String remark;
+
+    /** 联系电话（可选） */
+    @Size(max = 20)
+    private String phone;
 }

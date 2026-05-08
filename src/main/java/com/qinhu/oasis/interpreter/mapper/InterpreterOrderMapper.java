@@ -91,4 +91,12 @@ public interface InterpreterOrderMapper {
     int acceptOrder(@Param("id") Long id,
                     @Param("interpreterId") Long interpreterId,
                     @Param("status") Integer status);
+
+    /**
+     * 更新订单实体（通用更新方法）
+     *
+     * @param order 订单实体
+     * @return 受影响行数
+     */
+    int updateById(BizOrder order);
 }

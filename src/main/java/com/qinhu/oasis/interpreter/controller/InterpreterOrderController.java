@@ -7,6 +7,7 @@ import com.qinhu.oasis.common.result.Result;
 import com.qinhu.oasis.common.result.ResultCode;
 import com.qinhu.oasis.common.security.LoginUser;
 import com.qinhu.oasis.interpreter.dto.BookInterpreterReq;
+import com.qinhu.oasis.interpreter.dto.CancelOrderReq;
 import com.qinhu.oasis.interpreter.dto.InterpreterOrderVO;
 import com.qinhu.oasis.interpreter.service.InterpreterService;
 import jakarta.validation.Valid;
@@ -61,13 +62,15 @@ public class InterpreterOrderController {
     /**
      * 取消翻译订单（需登录，游客或译员均可操作）
      *
-     * @param id 订单 ID
+     * @param id  订单 ID
+     * @param req 取消理由（可选）
      * @return 操作结果
      */
     @PostMapping("/{id}/cancel")
-    public Result<Void> cancelOrder(@PathVariable Long id) {
+    public Result<Void> cancelOrder(@PathVariable Long id, @RequestBody(required = false) CancelOrderReq req) {
         Long userId = requireLogin();
-        interpreterService.cancelOrder(id, userId);
+        String reason = req != null ? req.getReason() : null;
+        interpreterService.cancelOrder(id, userId, reason);
         return Result.ok(null);
     }
 
@@ -106,13 +109,15 @@ public class InterpreterOrderController {
     /**
      * 译员拒绝订单（需登录，且必须是该订单指定的译员）
      *
-     * @param id 订单 ID
+     * @param id  订单 ID
+     * @param req 拒绝理由（可选）
      * @return 操作结果
      */
     @PostMapping("/{id}/reject")
-    public Result<Void> rejectOrder(@PathVariable Long id) {
+    public Result<Void> rejectOrder(@PathVariable Long id, @RequestBody(required = false) CancelOrderReq req) {
         Long userId = requireLogin();
-        interpreterService.rejectOrder(id, userId);
+        String reason = req != null ? req.getReason() : null;
+        interpreterService.rejectOrder(id, userId, reason);
         return Result.ok(null);
     }
 
@@ -127,6 +132,18 @@ public class InterpreterOrderController {
         Long userId = requireLogin();
         interpreterService.completeOrder(id, userId);
         return Result.ok(null);
+    }
+
+    /**
+     * 获取订单详情（需登录，订单所有者或译员可查看）
+     *
+     * @param id 订单 ID
+     * @return 订单 VO
+     */
+    @GetMapping("/{id}")
+    public Result<InterpreterOrderVO> getOrderDetail(@PathVariable Long id) {
+        Long userId = requireLogin();
+        return Result.ok(interpreterService.getOrderDetail(id, userId));
     }
 
     // ───────────── 私有辅助方法 ─────────────

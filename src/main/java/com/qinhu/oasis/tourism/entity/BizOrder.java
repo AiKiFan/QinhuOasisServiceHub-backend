@@ -42,8 +42,12 @@ public class BizOrder {
     private Integer status;
     /** 用户备注 */
     private String remark;
+    /** 联系电话（游客预约时填写） */
+    private String phone;
     /** 取消原因 */
     private String cancelReason;
+    /** 取消方标识：user=游客取消 interpreter=译员取消 */
+    private String cancelledBy;
     /** 是否已评价：0-否 1-是 */
     private Integer isCommented;
     private LocalDateTime createTime;

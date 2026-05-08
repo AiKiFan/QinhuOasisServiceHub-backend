@@ -8,12 +8,12 @@
             order_no, order_type, user_id, interpreter_id,
             service_type, group_size,
             start_time, end_time, total_amount, paid_amount,
-            status, remark
+            status, remark, phone
         ) VALUES (
             #{orderNo}, #{orderType}, #{userId}, #{interpreterId},
             #{serviceType}, #{groupSize},
             #{startTime}, #{endTime}, #{totalAmount}, #{paidAmount},
-            #{status}, #{remark}
+            #{status}, #{remark}, #{phone}
         )
     </insert>
 
@@ -25,12 +25,16 @@
     <select id="selectByUserId" resultType="com.qinhu.oasis.interpreter.dto.InterpreterOrderVO">
         SELECT o.id, o.order_no, o.user_id,
                u.nickname AS user_nickname,
+               u.avatar AS user_avatar,
+               u.phone AS user_phone,
+               u.email AS user_email,
                o.interpreter_id,
                i.nickname AS interpreter_nickname,
+               i.avatar AS interpreter_avatar,
                p.id AS profile_id,
                o.service_type, o.group_size,
                o.start_time, o.end_time, o.total_amount, o.paid_amount,
-               o.status, o.remark, o.cancel_reason, o.is_commented, o.create_time
+               o.status, o.remark, o.phone AS order_phone, o.cancel_reason, o.cancelled_by, o.is_commented, o.create_time
         FROM biz_order o
         LEFT JOIN sys_user u ON o.user_id = u.id
         LEFT JOIN sys_user i ON o.interpreter_id = i.id
@@ -49,12 +53,16 @@
     <select id="selectByInterpreterId" resultType="com.qinhu.oasis.interpreter.dto.InterpreterOrderVO">
         SELECT o.id, o.order_no, o.user_id,
                u.nickname AS user_nickname,
+               u.avatar AS user_avatar,
+               u.phone AS user_phone,
+               u.email AS user_email,
                o.interpreter_id,
                i.nickname AS interpreter_nickname,
+               i.avatar AS interpreter_avatar,
                p.id AS profile_id,
                o.service_type, o.group_size,
                o.start_time, o.end_time, o.total_amount, o.paid_amount,
-               o.status, o.remark, o.cancel_reason, o.is_commented, o.create_time
+               o.status, o.remark, o.phone AS order_phone, o.cancel_reason, o.cancelled_by, o.is_commented, o.create_time
         FROM biz_order o
         LEFT JOIN sys_user u ON o.user_id = u.id
         LEFT JOIN sys_user i ON o.interpreter_id = i.id
@@ -76,6 +84,14 @@
     <update id="acceptOrder">
         UPDATE biz_order
         SET interpreter_id = #{interpreterId}, status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateById">
+        UPDATE biz_order
+        SET status = #{status},
+            cancelled_by = #{cancelledBy},
+            cancel_reason = #{cancelReason}
         WHERE id = #{id}
     </update>
 

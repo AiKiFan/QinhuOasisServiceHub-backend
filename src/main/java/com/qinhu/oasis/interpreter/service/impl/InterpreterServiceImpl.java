@@ -118,7 +118,8 @@ public class InterpreterServiceImpl implements InterpreterService {
         java.time.LocalDate tomorrow = java.time.LocalDate.now().plusDays(1);
         java.time.LocalDate startDay = req.getStartTime().toLocalDate();
         if (startDay.isBefore(tomorrow)) {
-            throw new BizException(ResultCode.PARAM_ERROR, i18nUtil.msg(ResultCode.PARAM_ERROR));
+            throw new BizException(ResultCode.BOOKING_TIME_INVALID,
+                    i18nUtil.msg(ResultCode.BOOKING_TIME_INVALID));
         }
 
         long hours = ChronoUnit.HOURS.between(req.getStartTime(), req.getEndTime());
@@ -140,6 +141,7 @@ public class InterpreterServiceImpl implements InterpreterService {
         order.setPaidAmount(BigDecimal.ZERO);
         order.setStatus(OrderStatus.PENDING);
         order.setRemark(req.getRemark());
+        order.setPhone(req.getPhone());
         orderMapper.insert(order);
         log.info("Interpreter order created: orderId={}, userId={}, interpreterId={}", order.getId(), userId, profile.getUserId());
 
@@ -166,20 +168,26 @@ public class InterpreterServiceImpl implements InterpreterService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void cancelOrder(Long orderId, Long userId) {
+    public void cancelOrder(Long orderId, Long userId, String reason) {
         BizOrder order = orderMapper.selectById(orderId);
         if (order == null) {
             throw new BizException(ResultCode.ORDER_NOT_EXIST, i18nUtil.msg(ResultCode.ORDER_NOT_EXIST));
         }
-        boolean isOwner = userId.equals(order.getUserId()) || userId.equals(order.getInterpreterId());
-        if (!isOwner) {
+        boolean isUser = userId.equals(order.getUserId());
+        boolean isInterpreter = userId.equals(order.getInterpreterId());
+        if (!isUser && !isInterpreter) {
             throw new BizException(ResultCode.FORBIDDEN, i18nUtil.msg(ResultCode.FORBIDDEN));
         }
         if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.ACCEPTED) {
             throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
         }
-        orderMapper.updateStatus(orderId, OrderStatus.CANCELLED);
-        log.info("Interpreter order cancelled: orderId={}, operatorId={}", orderId, userId);
+        // 记录取消方
+        String cancelledBy = isUser ? "user" : "interpreter";
+        order.setCancelledBy(cancelledBy);
+        order.setCancelReason(reason);
+        order.setStatus(OrderStatus.CANCELLED);
+        orderMapper.updateById(order);
+        log.info("Interpreter order cancelled: orderId={}, operatorId={}, cancelledBy={}, reason={}", orderId, userId, cancelledBy, reason);
     }
 
     @Override
@@ -205,7 +213,7 @@ public class InterpreterServiceImpl implements InterpreterService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void rejectOrder(Long orderId, Long userId) {
+    public void rejectOrder(Long orderId, Long userId, String reason) {
         BizOrder order = orderMapper.selectById(orderId);
         if (order == null) {
             throw new BizException(ResultCode.ORDER_NOT_EXIST, i18nUtil.msg(ResultCode.ORDER_NOT_EXIST));
@@ -216,8 +224,11 @@ public class InterpreterServiceImpl implements InterpreterService {
         if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.ACCEPTED) {
             throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
         }
-        orderMapper.updateStatus(orderId, OrderStatus.CANCELLED);
-        log.info("Interpreter order rejected: orderId={}, interpreterId={}", orderId, userId);
+        order.setCancelledBy("interpreter");
+        order.setCancelReason(reason);
+        order.setStatus(OrderStatus.CANCELLED);
+        orderMapper.updateById(order);
+        log.info("Interpreter order rejected: orderId={}, interpreterId={}, reason={}", orderId, userId, reason);
     }
 
     @Override
@@ -350,5 +361,30 @@ public class InterpreterServiceImpl implements InterpreterService {
         profileMapper.updateById(profile);
         log.info("Interpreter application updated: profileId={}, userId={}", profile.getId(), userId);
         return toVO(profileMapper.selectById(profile.getId()));
+    }
+
+    @Override
+    public InterpreterOrderVO getOrderDetail(Long orderId, Long userId) {
+        BizOrder order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new BizException(ResultCode.ORDER_NOT_EXIST, i18nUtil.msg(ResultCode.ORDER_NOT_EXIST));
+        }
+        // 验证权限：必须是订单的游客或译员
+        boolean isUser = userId.equals(order.getUserId());
+        boolean isInterpreter = userId.equals(order.getInterpreterId());
+        if (!isUser && !isInterpreter) {
+            throw new BizException(ResultCode.FORBIDDEN, i18nUtil.msg(ResultCode.FORBIDDEN));
+        }
+        // 使用 selectByUserId 或 selectByInterpreterId 获取完整 VO（含关联信息）
+        List<InterpreterOrderVO> list;
+        if (isUser) {
+            list = orderMapper.selectByUserId(userId, 0, 100);
+        } else {
+            list = orderMapper.selectByInterpreterId(userId, 0, 100);
+        }
+        return list.stream()
+                .filter(vo -> vo.getId().equals(orderId))
+                .findFirst()
+                .orElseThrow(() -> new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND)));
     }
 }

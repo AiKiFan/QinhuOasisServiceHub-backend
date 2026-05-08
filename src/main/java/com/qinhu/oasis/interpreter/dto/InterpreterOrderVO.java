@@ -19,9 +19,17 @@ public class InterpreterOrderVO {
     /** 下单游客用户 ID */
     private Long userId;
     private String userNickname;
+    /** 游客头像 URL */
+    private String userAvatar;
+    /** 游客手机号 */
+    private String userPhone;
+    /** 游客邮箱 */
+    private String userEmail;
     /** 接单译员用户 ID（biz_order.interpreter_id） */
     private Long interpreterId;
     private String interpreterNickname;
+    /** 译员头像 URL */
+    private String interpreterAvatar;
     /** 译员档案 ID（interpreter_profile.id） */
     private Long profileId;
     /** 服务类型：1=个人 2=团队 */
@@ -35,7 +43,11 @@ public class InterpreterOrderVO {
     /** 订单状态（参见 OrderStatus） */
     private Integer status;
     private String remark;
+    /** 订单联系电话（游客预约时填写，区别于 userPhone） */
+    private String orderPhone;
     private String cancelReason;
+    /** 取消方：user=游客 interpreter=译员 */
+    private String cancelledBy;
     /** 是否已评价：0=否 1=是 */
     private Integer isCommented;
     private LocalDateTime createTime;

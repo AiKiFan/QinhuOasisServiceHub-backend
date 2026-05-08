@@ -64,8 +64,9 @@ public interface InterpreterService {
      *
      * @param orderId 订单 ID
      * @param userId  操作人用户 ID
+     * @param reason  取消理由（可选）
      */
-    void cancelOrder(Long orderId, Long userId);
+    void cancelOrder(Long orderId, Long userId, String reason);
 
     /**
      * 分页查询当前用户的翻译订单列表
@@ -93,8 +94,9 @@ public interface InterpreterService {
      *
      * @param orderId 订单 ID
      * @param userId  译员用户 ID
+     * @param reason  拒绝理由（可选）
      */
-    void rejectOrder(Long orderId, Long userId);
+    void rejectOrder(Long orderId, Long userId, String reason);
 
     /**
      * 译员完成服务
@@ -148,4 +150,13 @@ public interface InterpreterService {
      * @return 更新后的译员档案 VO
      */
     InterpreterVO updateMyApplication(ApplyInterpreterReq req, Long userId);
+
+    /**
+     * 获取订单详情（游客或译员可查看）
+     *
+     * @param orderId 订单 ID
+     * @param userId  当前用户 ID
+     * @return 订单 VO
+     */
+    InterpreterOrderVO getOrderDetail(Long orderId, Long userId);
 }
