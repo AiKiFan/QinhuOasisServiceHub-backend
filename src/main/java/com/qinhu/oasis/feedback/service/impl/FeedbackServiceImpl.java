@@ -4,6 +4,7 @@ import cn.hutool.json.JSONUtil;
 import com.qinhu.oasis.common.constant.FeedbackStatus;
 import com.qinhu.oasis.common.exception.BizException;
 import com.qinhu.oasis.common.i18n.I18nUtil;
+import com.qinhu.oasis.common.i18n.LocaleContextHolder;
 import com.qinhu.oasis.common.result.PageResult;
 import com.qinhu.oasis.common.result.ResultCode;
 import com.qinhu.oasis.feedback.dto.CreateFeedbackReq;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 投诉建议业务服务实现
@@ -35,6 +37,24 @@ public class FeedbackServiceImpl implements FeedbackService {
 
     private final SysFeedbackMapper feedbackMapper;
     private final I18nUtil i18nUtil;
+
+    /**
+     * 根据当前语言环境获取管理员身份标签
+     */
+    private String getAdminRoleLabel() {
+        Locale locale = LocaleContextHolder.get();
+        boolean isEnglish = locale.getLanguage().equals("en");
+        return isEnglish ? "[Admin]" : "[管理员]";
+    }
+
+    /**
+     * 根据当前语言环境获取用户身份标签
+     */
+    private String getUserRoleLabel() {
+        Locale locale = LocaleContextHolder.get();
+        boolean isEnglish = locale.getLanguage().equals("en");
+        return isEnglish ? "[User]" : "[用户]";
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -72,11 +92,12 @@ public class FeedbackServiceImpl implements FeedbackService {
             throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
         }
 
-        // 追加管理员回复（而不是覆盖）
+        // 追加管理员回复（根据语言环境拼接身份标签）
         String prev = existing.getReplyContent() == null ? "" : existing.getReplyContent();
         String separator = prev.isEmpty() ? "" : "\n---\n";
         String timestamp = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-        String fullReply = prev + separator + "[" + timestamp + "] [管理员] " + req.getReplyContent();
+        String roleLabel = getAdminRoleLabel(); // 根据语言环境获取 [管理员] 或 [Admin]
+        String fullReply = prev + separator + "[" + timestamp + "] " + roleLabel + " " + req.getReplyContent();
 
         feedbackMapper.updateReply(feedbackId, fullReply, req.getStatus(), adminId, LocalDateTime.now());
         log.info("Feedback replied: id={}, newStatus={}, adminId={}", feedbackId, req.getStatus(), adminId);
@@ -119,10 +140,12 @@ public class FeedbackServiceImpl implements FeedbackService {
         if (existing.getStatus() == null || existing.getStatus() != FeedbackStatus.PROCESSING) {
             throw new BizException(ResultCode.ORDER_STATUS_INVALID, i18nUtil.msg(ResultCode.ORDER_STATUS_INVALID));
         }
+        // 追加用户回复（根据语言环境拼接身份标签）
         String prev = existing.getReplyContent() == null ? "" : existing.getReplyContent();
         String separator = prev.isEmpty() ? "" : "\n---\n";
         String timestamp = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-        String appended = prev + separator + "[" + timestamp + "] [用户] " + req.getReplyContent();
+        String roleLabel = getUserRoleLabel(); // 根据语言环境获取 [用户] 或 [User]
+        String appended = prev + separator + "[" + timestamp + "] " + roleLabel + " " + req.getReplyContent();
         feedbackMapper.appendReplyContent(feedbackId, appended, FeedbackStatus.PROCESSING);
         log.info("Feedback user-reply appended: id={}, userId={}", feedbackId, userId);
     }

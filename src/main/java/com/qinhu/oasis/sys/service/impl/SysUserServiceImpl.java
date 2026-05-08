@@ -6,6 +6,8 @@ import com.qinhu.oasis.common.exception.BizException;
 import com.qinhu.oasis.common.i18n.I18nUtil;
 import com.qinhu.oasis.common.result.ResultCode;
 import com.qinhu.oasis.common.security.JwtUtil;
+import com.qinhu.oasis.interpreter.entity.InterpreterProfile;
+import com.qinhu.oasis.interpreter.mapper.InterpreterProfileMapper;
 import com.qinhu.oasis.sys.dto.LoginReq;
 import com.qinhu.oasis.sys.dto.LoginVO;
 import com.qinhu.oasis.sys.dto.RegisterReq;
@@ -38,6 +40,7 @@ public class SysUserServiceImpl implements SysUserService {
 
     private final SysUserMapper sysUserMapper;
     private final JwtUtil jwtUtil;
+    private final InterpreterProfileMapper interpreterProfileMapper;
     private final I18nUtil i18nUtil;
 
     @Value("${jwt.expiration}")
@@ -90,6 +93,15 @@ public class SysUserServiceImpl implements SysUserService {
         vo.setRole(user.getRole());
         vo.setAvatar(user.getAvatar());
         vo.setExpiresIn(jwtExpiration);
+
+        // 如果用户是译员，查询其档案 ID（用于前端判断译员身份）
+        if (user.getRole() != null && user.getRole() == 1) {
+            InterpreterProfile profile = interpreterProfileMapper.selectByUserId(user.getId());
+            if (profile != null && profile.getStatus() == 1) { // 已通过审核
+                vo.setProfileId(profile.getId());
+            }
+        }
+
         return vo;
     }
 

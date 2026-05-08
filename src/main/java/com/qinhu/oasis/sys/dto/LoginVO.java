@@ -19,6 +19,8 @@ public class LoginVO {
     /** 用户角色（参见 {@link com.qinhu.oasis.common.constant.UserRole}） */
     private Integer role;
     private String avatar;
+    /** 译员档案 ID（仅当 role=1 且已通过审核时有值，用于前端判断译员身份） */
+    private Long profileId;
     /** Token 有效期（秒） */
     private Long expiresIn;
 }

@@ -6,6 +6,8 @@ import com.qinhu.oasis.common.exception.BizException;
 import com.qinhu.oasis.common.i18n.I18nUtil;
 import com.qinhu.oasis.common.result.PageResult;
 import com.qinhu.oasis.common.result.ResultCode;
+import com.qinhu.oasis.interpreter.entity.InterpreterProfile;
+import com.qinhu.oasis.interpreter.mapper.InterpreterProfileMapper;
 import com.qinhu.oasis.ugc.dto.CommentVO;
 import com.qinhu.oasis.ugc.dto.CreateCommentReq;
 import com.qinhu.oasis.ugc.entity.BizComment;
@@ -34,11 +36,21 @@ public class BizCommentServiceImpl implements BizCommentService {
 
     private final BizCommentMapper bizCommentMapper;
     private final UgcPostMapper ugcPostMapper;
+    private final InterpreterProfileMapper interpreterProfileMapper;
     private final I18nUtil i18nUtil;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommentVO createComment(CreateCommentReq req, Long userId) {
+        // 防止译员自我评价
+        if (CommentTargetType.INTERPRETER == req.getTargetType()) {
+            InterpreterProfile profile = interpreterProfileMapper.selectById(req.getTargetId());
+            if (profile != null && userId.equals(profile.getUserId())) {
+                throw new BizException(ResultCode.SELF_REVIEW_NOT_ALLOWED,
+                        i18nUtil.msg(ResultCode.SELF_REVIEW_NOT_ALLOWED));
+            }
+        }
+
         BizComment comment = new BizComment();
         comment.setUserId(userId);
         comment.setTargetId(req.getTargetId());

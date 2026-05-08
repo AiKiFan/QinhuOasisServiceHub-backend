@@ -31,6 +31,8 @@ public enum ResultCode {
     INTERPRETER_NOT_APPROVED(2001, "interpreter.not.approved"),
     INTERPRETER_PROFILE_EXISTS(2002, "interpreter.profile.exists"),
     BOOKING_TIME_INVALID(2003, "interpreter.booking.time.invalid"),
+    SELF_BOOKING_NOT_ALLOWED(2004, "interpreter.self.booking"),
+    SELF_REVIEW_NOT_ALLOWED(2005, "interpreter.self.review"),
 
     // 订单域
     ORDER_NOT_EXIST(3001, "order.not.exist"),

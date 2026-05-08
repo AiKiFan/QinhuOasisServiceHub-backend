@@ -13,6 +13,7 @@ public final class CommentTargetType {
     public static final int POST              = 2;
     public static final int INTERPRETER_ORDER = 3;
     public static final int PARKING_ORDER     = 4;
+    public static final int INTERPRETER       = 5;
 
     private CommentTargetType() {
     }

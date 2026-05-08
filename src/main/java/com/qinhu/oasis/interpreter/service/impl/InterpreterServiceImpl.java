@@ -113,6 +113,11 @@ public class InterpreterServiceImpl implements InterpreterService {
             throw new BizException(ResultCode.INTERPRETER_NOT_APPROVED,
                     i18nUtil.msg(ResultCode.INTERPRETER_NOT_APPROVED));
         }
+        // 防止自预约：下单用户不能是译员本人
+        if (userId.equals(profile.getUserId())) {
+            throw new BizException(ResultCode.SELF_BOOKING_NOT_ALLOWED,
+                    i18nUtil.msg(ResultCode.SELF_BOOKING_NOT_ALLOWED));
+        }
 
         // 验证预约时间至少提前一天
         java.time.LocalDate tomorrow = java.time.LocalDate.now().plusDays(1);
