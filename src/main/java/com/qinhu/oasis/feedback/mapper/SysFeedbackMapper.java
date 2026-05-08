@@ -70,4 +70,37 @@ public interface SysFeedbackMapper {
                     @Param("status") Integer status,
                     @Param("handlerId") Long handlerId,
                     @Param("replyTime") LocalDateTime replyTime);
+
+    /**
+     * 用户分页查询本人的投诉建议
+     */
+    List<FeedbackVO> selectByUserIdPage(@Param("userId") Long userId,
+                                        @Param("offset") int offset,
+                                        @Param("size") int size);
+
+    /**
+     * 统计用户名下投诉建议总数
+     */
+    long countByUserId(@Param("userId") Long userId);
+
+    /**
+     * 用户更新本人投诉建议（PENDING 状态下允许）
+     */
+    int updateUserFields(@Param("id") Long id,
+                         @Param("title") String title,
+                         @Param("content") String content,
+                         @Param("images") String images,
+                         @Param("contact") String contact);
+
+    /**
+     * 仅更新状态
+     */
+    int updateStatus(@Param("id") Long id, @Param("status") Integer status);
+
+    /**
+     * 追加（覆盖）回复内容并设置状态（Service 层负责拼接完整内容）
+     */
+    int appendReplyContent(@Param("id") Long id,
+                           @Param("replyContent") String replyContent,
+                           @Param("status") Integer status);
 }

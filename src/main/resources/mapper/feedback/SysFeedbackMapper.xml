@@ -52,6 +52,46 @@
         </where>
     </select>
 
+    <!-- 用户分页查询本人投诉建议 -->
+    <select id="selectByUserIdPage" resultType="com.qinhu.oasis.feedback.dto.FeedbackVO">
+        SELECT f.id, f.user_id,
+               u.nickname AS user_nickname,
+               f.feedback_type, f.title, f.content, f.images, f.contact,
+               f.status, f.reply_content, f.reply_time, f.handler_id,
+               h.nickname AS handler_nickname,
+               f.create_time
+        FROM sys_feedback f
+        LEFT JOIN sys_user u ON f.user_id = u.id
+        LEFT JOIN sys_user h ON f.handler_id = h.id
+        WHERE f.user_id = #{userId}
+        ORDER BY f.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM sys_feedback WHERE user_id = #{userId}
+    </select>
+
+    <update id="updateUserFields">
+        UPDATE sys_feedback
+        SET title   = #{title},
+            content = #{content},
+            images  = #{images},
+            contact = #{contact}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE sys_feedback SET status = #{status} WHERE id = #{id}
+    </update>
+
+    <update id="appendReplyContent">
+        UPDATE sys_feedback
+        SET reply_content = #{replyContent},
+            status        = #{status}
+        WHERE id = #{id}
+    </update>
+
     <update id="updateReply">
         UPDATE sys_feedback
         SET reply_content = #{replyContent},

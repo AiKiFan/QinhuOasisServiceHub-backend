@@ -10,12 +10,15 @@ import com.qinhu.oasis.common.security.LoginUser;
 import com.qinhu.oasis.feedback.dto.CreateFeedbackReq;
 import com.qinhu.oasis.feedback.dto.FeedbackVO;
 import com.qinhu.oasis.feedback.dto.ReplyFeedbackReq;
+import com.qinhu.oasis.feedback.dto.UpdateFeedbackReq;
+import com.qinhu.oasis.feedback.dto.AppendReplyReq;
 import com.qinhu.oasis.feedback.service.FeedbackService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -83,7 +86,77 @@ public class FeedbackController {
         return Result.ok(null);
     }
 
+    /**
+     * 当前用户分页查询本人投诉建议
+     */
+    @GetMapping("/feedback/me")
+    public Result<PageResult<FeedbackVO>> myList(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long userId = requireLoginUser();
+        return Result.ok(feedbackService.getMyFeedbackList(userId, page, size));
+    }
+
+    /**
+     * 当前用户查询本人投诉建议详情
+     */
+    @GetMapping("/feedback/{id}")
+    public Result<FeedbackVO> myDetail(@PathVariable Long id) {
+        Long userId = requireLoginUser();
+        return Result.ok(feedbackService.getMyFeedbackDetail(id, userId));
+    }
+
+    /**
+     * 当前用户更新本人投诉建议（仅 PENDING）
+     */
+    @PutMapping("/feedback/{id}")
+    public Result<Void> updateMy(@PathVariable Long id,
+                                 @Valid @RequestBody UpdateFeedbackReq req) {
+        Long userId = requireLoginUser();
+        feedbackService.updateFeedback(id, req, userId);
+        return Result.ok(null);
+    }
+
+    /**
+     * 当前用户追加回复（仅 PROCESSING）
+     */
+    @PostMapping("/feedback/{id}/reply")
+    public Result<Void> appendMyReply(@PathVariable Long id,
+                                      @Valid @RequestBody AppendReplyReq req) {
+        Long userId = requireLoginUser();
+        feedbackService.appendUserReply(id, req, userId);
+        return Result.ok(null);
+    }
+
+    /**
+     * 当前用户关闭本人投诉建议
+     */
+    @PostMapping("/feedback/{id}/close")
+    public Result<Void> closeMy(@PathVariable Long id) {
+        Long userId = requireLoginUser();
+        feedbackService.closeFeedback(id, userId);
+        return Result.ok(null);
+    }
+
+    /**
+     * 当前用户标记本人投诉建议为已解决
+     */
+    @PostMapping("/feedback/{id}/resolve")
+    public Result<Void> resolveMy(@PathVariable Long id) {
+        Long userId = requireLoginUser();
+        feedbackService.resolveFeedback(id, userId);
+        return Result.ok(null);
+    }
+
     // ───────────── 私有辅助方法 ─────────────
+
+    private Long requireLoginUser() {
+        Long userId = LoginUser.getUserId();
+        if (userId == null) {
+            throw new BizException(ResultCode.UNAUTHORIZED, i18nUtil.msg(ResultCode.UNAUTHORIZED));
+        }
+        return userId;
+    }
 
     private Long requireAdmin() {
         Long userId = LoginUser.getUserId();
