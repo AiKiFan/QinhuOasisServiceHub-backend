@@ -32,12 +32,16 @@ public class FavoriteServiceImpl implements FavoriteService {
 
     @Override
     public void addFavorite(Long userId, FavoriteReq req) {
-        // 检查是否已收藏
-        UserFavorite existing = userFavoriteMapper.selectByUserAndTarget(userId, req.getTargetType(), req.getTargetId());
-        if (existing != null) {
+        // 已收藏（deleted=0）→抛异常
+        if (userFavoriteMapper.selectByUserAndTarget(userId, req.getTargetType(), req.getTargetId()) != null) {
             throw new RuntimeException("已经收藏过了");
         }
-
+        // 有软删除记录（deleted=1）→恢复收藏
+        int affected = userFavoriteMapper.restore(userId, req.getTargetType(), req.getTargetId(), req.getFolderId());
+        if (affected > 0) {
+            return;
+        }
+        // 无记录→新增
         UserFavorite favorite = new UserFavorite();
         favorite.setUserId(userId);
         favorite.setTargetType(req.getTargetType());

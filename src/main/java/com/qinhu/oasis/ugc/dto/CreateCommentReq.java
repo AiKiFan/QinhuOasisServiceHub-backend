@@ -19,24 +19,24 @@ import java.util.List;
 @Data
 public class CreateCommentReq {
 
-    @NotNull(message = "目标 ID 不能为空")
+    @NotNull(message = "{validation.targetId.notNull}")
     private Long targetId;
 
     /** 目标类型：1-餐厅 2-攻略 3-译员订单 4-车位订单 */
-    @NotNull(message = "目标类型不能为空")
+    @NotNull(message = "{validation.targetType.notNull}")
     private Integer targetType;
 
-    @NotBlank(message = "评论内容不能为空")
-    @Size(max = 1000, message = "评论最多1000个字符")
+    @NotBlank(message = "{validation.content.notBlank}")
+    @Size(max = 1000, message = "{validation.content.size}")
     private String content;
 
     /** 评分 1-5（对餐厅/服务评价时必填） */
-    @Min(value = 1, message = "评分最低1星")
-    @Max(value = 5, message = "评分最高5星")
+    @Min(value = 1, message = "{validation.rating.min}")
+    @Max(value = 5, message = "{validation.rating.max}")
     private Integer rating;
 
     /** 评论图片（最多3张 URL） */
-    @Size(max = 3, message = "最多上传3张图片")
+    @Size(max = 3, message = "{validation.images.size}")
     private List<String> images;
 
     /** 父评论 ID（回复楼层时传入） */

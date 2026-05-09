@@ -8,6 +8,13 @@
         VALUES (#{userId}, #{targetType}, #{targetId}, #{folderId})
     </insert>
 
+    <!-- 恢复软删除的收藏记录（重新收藏时复用 -->
+    <update id="restore">
+        UPDATE biz_user_favorite
+        SET deleted = 0, folder_id = #{folderId}, create_time = NOW()
+        WHERE user_id = #{userId} AND target_type = #{targetType} AND target_id = #{targetId} AND deleted = 1
+    </update>
+
     <update id="deleteByUserAndTarget">
         UPDATE biz_user_favorite
         SET deleted = 1

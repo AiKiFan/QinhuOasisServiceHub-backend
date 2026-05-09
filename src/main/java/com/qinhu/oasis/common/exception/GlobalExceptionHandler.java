@@ -1,7 +1,9 @@
 package com.qinhu.oasis.common.exception;
 
+import com.qinhu.oasis.common.i18n.I18nUtil;
 import com.qinhu.oasis.common.result.Result;
 import com.qinhu.oasis.common.result.ResultCode;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindingResult;
@@ -49,6 +51,7 @@ public class GlobalExceptionHandler {
         String msg = br.getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining("; "));
+        // 字段错误消息已经是 i18n 翻译后的文本（Controller 在入参中注入 Locale 或 LocaleContext），直接返回
         return Result.fail(ResultCode.PARAM_ERROR, msg);
     }
 

@@ -26,6 +26,11 @@ public interface UserFavoriteMapper {
     int deleteByUserAndTarget(@Param("userId") Long userId, @Param("targetType") String targetType, @Param("targetId") Long targetId);
 
     /**
+     * 恢复软删除的收藏（重新收藏时复用）
+     */
+    int restore(@Param("userId") Long userId, @Param("targetType") String targetType, @Param("targetId") Long targetId, @Param("folderId") Long folderId);
+
+    /**
      * 查询用户是否已收藏
      */
     UserFavorite selectByUserAndTarget(@Param("userId") Long userId, @Param("targetType") String targetType, @Param("targetId") Long targetId);
