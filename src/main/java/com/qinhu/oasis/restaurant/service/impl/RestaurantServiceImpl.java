@@ -118,6 +118,62 @@ public class RestaurantServiceImpl implements RestaurantService {
         return restaurants.stream().map(this::toListVO).collect(Collectors.toList());
     }
 
+    @Override
+    public PageResult<Restaurant> adminList(String keyword, int page, int size) {
+        int offset = (page - 1) * size;
+        long total = restaurantMapper.countAdminPage(keyword);
+        List<Restaurant> list = restaurantMapper.selectAdminPage(keyword, offset, size);
+        return PageResult.of(total, list);
+    }
+
+    @Override
+    public Restaurant adminCreate(Restaurant restaurant) {
+        // 新增时默认正常营业，rating/reviewCount/sortScore 为 0
+        if (restaurant.getStatus() == null) {
+            restaurant.setStatus(1);
+        }
+        if (restaurant.getRating() == null) {
+            restaurant.setRating(java.math.BigDecimal.ZERO);
+        }
+        if (restaurant.getReviewCount() == null) {
+            restaurant.setReviewCount(0);
+        }
+        if (restaurant.getSortScore() == null) {
+            restaurant.setSortScore(0.0);
+        }
+        restaurantMapper.insert(restaurant);
+        log.info("Admin created restaurant: id={}, name={}", restaurant.getId(), restaurant.getName());
+        return restaurant;
+    }
+
+    @Override
+    public Restaurant adminUpdate(Restaurant incoming) {
+        if (incoming.getId() == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, i18nUtil.msg(ResultCode.PARAM_ERROR));
+        }
+        Restaurant existing = restaurantMapper.selectById(incoming.getId());
+        if (existing == null) {
+            throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+        }
+        // 合并数据：前端不传 rating/reviewCount/sortScore，沿用数据库现有值
+        incoming.setRating(existing.getRating());
+        incoming.setReviewCount(existing.getReviewCount());
+        incoming.setSortScore(existing.getSortScore());
+        restaurantMapper.updateById(incoming);
+        log.info("Admin updated restaurant: id={}, name={}", incoming.getId(), incoming.getName());
+        return restaurantMapper.selectById(incoming.getId());
+    }
+
+    @Override
+    public void adminDelete(Long id) {
+        Restaurant existing = restaurantMapper.selectById(id);
+        if (existing == null) {
+            throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+        }
+        restaurantMapper.deleteById(id);
+        log.info("Admin deleted restaurant: id={}, name={}", id, existing.getName());
+    }
+
     // ───────────── 私有转换方法 ─────────────
 
     private boolean isEnglish() {

@@ -57,6 +57,47 @@ public interface RestaurantMapper {
     long countByCategory(@Param("category") String category);
 
     /**
+     * 管理员分页查询餐厅列表（支持关键词搜索）
+     *
+     * @param keyword 关键词（名称/地址），为空时查全部
+     * @param offset  分页偏移量
+     * @param size    每页条数
+     * @return 餐厅列表（含已删除/已下架）
+     */
+    List<Restaurant> selectAdminPage(@Param("keyword") String keyword,
+                                    @Param("offset") int offset,
+                                    @Param("size") int size);
+
+    /**
+     * 统计管理员分页总数
+     *
+     * @param keyword 关键词
+     * @return 总数
+     */
+    long countAdminPage(@Param("keyword") String keyword);
+
+    /**
+     * 新增餐厅
+     *
+     * @param restaurant 餐厅实体
+     */
+    void insert(Restaurant restaurant);
+
+    /**
+     * 更新餐厅
+     *
+     * @param restaurant 餐厅实体
+     */
+    void updateById(Restaurant restaurant);
+
+    /**
+     * 软删除餐厅
+     *
+     * @param id 餐厅 ID
+     */
+    void deleteById(@Param("id") Long id);
+
+    /**
      * 按热度分值降序查询 Top N 餐厅（Redis 缺失时的降级方案）
      *
      * @param limit 查询条数

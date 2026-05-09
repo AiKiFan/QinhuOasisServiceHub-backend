@@ -47,4 +47,61 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 管理员分页查询 -->
+    <select id="selectAdminPage" resultType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        SELECT * FROM biz_restaurant
+        WHERE deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (name LIKE CONCAT('%', #{keyword}, '%') OR address LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*) FROM biz_restaurant
+        WHERE deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (name LIKE CONCAT('%', #{keyword}, '%') OR address LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id"
+            parameterType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        INSERT INTO biz_restaurant (
+            name, name_en, category, cover_img, images,
+            address, lat, lng, avg_price, phone, business_hours,
+            tags, rating, review_count, sort_score, status
+        ) VALUES (
+            #{name}, #{nameEn}, #{category}, #{coverImg}, #{images},
+            #{address}, #{lat}, #{lng}, #{avgPrice}, #{phone}, #{businessHours},
+            #{tags}, #{rating}, #{reviewCount}, #{sortScore}, #{status}
+        )
+    </insert>
+
+    <update id="updateById" parameterType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        UPDATE biz_restaurant
+        SET name       = #{name},
+            name_en    = #{nameEn},
+            category   = #{category},
+            cover_img  = #{coverImg},
+            images     = #{images},
+            address    = #{address},
+            lat        = #{lat},
+            lng        = #{lng},
+            avg_price  = #{avgPrice},
+            phone      = #{phone},
+            business_hours = #{businessHours},
+            tags       = #{tags},
+            rating     = #{rating},
+            review_count = #{reviewCount},
+            sort_score = #{sortScore},
+            status     = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteById">
+        UPDATE biz_restaurant SET deleted = 1 WHERE id = #{id}
+    </update>
+
 </mapper>

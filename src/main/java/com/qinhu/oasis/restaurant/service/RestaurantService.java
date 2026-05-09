@@ -4,6 +4,7 @@ import com.qinhu.oasis.common.result.PageResult;
 import com.qinhu.oasis.restaurant.dto.RankListVO;
 import com.qinhu.oasis.restaurant.dto.RestaurantDetailVO;
 import com.qinhu.oasis.restaurant.dto.RestaurantListVO;
+import com.qinhu.oasis.restaurant.entity.Restaurant;
 
 import java.util.List;
 
@@ -54,4 +55,37 @@ public interface RestaurantService {
      * @return 餐厅列表
      */
     List<RestaurantListVO> getRestaurantsByIds(List<Long> ids);
+
+    /**
+     * 管理员分页查询餐厅列表
+     *
+     * @param keyword 关键词（名称/地址）
+     * @param page    页码
+     * @param size    每页条数
+     * @return 分页结果
+     */
+    PageResult<Restaurant> adminList(String keyword, int page, int size);
+
+    /**
+     * 管理员新增餐厅
+     *
+     * @param restaurant 餐厅实体
+     * @return 新增的餐厅
+     */
+    Restaurant adminCreate(Restaurant restaurant);
+
+    /**
+     * 管理员更新餐厅
+     *
+     * @param restaurant 餐厅实体（需含 ID）
+     * @return 更新后的餐厅
+     */
+    Restaurant adminUpdate(Restaurant restaurant);
+
+    /**
+     * 管理员删除餐厅（软删除）
+     *
+     * @param id 餐厅 ID
+     */
+    void adminDelete(Long id);
 }
