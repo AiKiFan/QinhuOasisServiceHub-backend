@@ -122,6 +122,15 @@ public class SysUserServiceImpl implements SysUserService {
         vo.setRole(user.getRole());
         vo.setLocale(user.getLocale());
         vo.setCreateTime(user.getCreateTime());
+
+        // 如果用户是译员，查询其档案 ID
+        if (user.getRole() != null && user.getRole() == 1) {
+            InterpreterProfile profile = interpreterProfileMapper.selectByUserId(user.getId());
+            if (profile != null && profile.getStatus() == 1) {
+                vo.setProfileId(profile.getId());
+            }
+        }
+
         return vo;
     }
 

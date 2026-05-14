@@ -24,4 +24,6 @@ public class UserInfoVO {
     /** 语言偏好：zh_CN / en_US */
     private String locale;
     private LocalDateTime createTime;
+    /** 译员档案ID（仅当role=1且译员档案已通过审核时有值） */
+    private Long profileId;
 }
