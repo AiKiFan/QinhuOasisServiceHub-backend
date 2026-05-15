@@ -104,4 +104,14 @@
         UPDATE biz_restaurant SET deleted = 1 WHERE id = #{id}
     </update>
 
+    <!-- 更新餐厅评分（评论提交后自动刷新） -->
+    <update id="updateRating">
+        UPDATE biz_restaurant SET rating = #{rating} WHERE id = #{id}
+    </update>
+
+    <!-- 餐厅评论数 +1（首次评价时调用） -->
+    <update id="incrementReviewCount">
+        UPDATE biz_restaurant SET review_count = review_count + 1 WHERE id = #{id}
+    </update>
+
 </mapper>

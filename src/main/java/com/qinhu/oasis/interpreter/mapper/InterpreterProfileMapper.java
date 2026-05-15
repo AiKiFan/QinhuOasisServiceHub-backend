@@ -101,4 +101,12 @@ public interface InterpreterProfileMapper {
      * @return 影响行数
      */
     int updateById(InterpreterProfile profile);
+
+    /**
+     * 更新译员评分（评论提交后自动刷新）
+     *
+     * @param id     档案ID
+     * @param rating 新评分
+     */
+    void updateRating(@Param("id") Long id, @Param("rating") java.math.BigDecimal rating);
 }

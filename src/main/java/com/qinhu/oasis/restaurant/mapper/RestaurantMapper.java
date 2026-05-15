@@ -104,4 +104,19 @@ public interface RestaurantMapper {
      * @return 餐厅列表
      */
     List<Restaurant> selectTopByScore(@Param("limit") int limit);
+
+    /**
+     * 更新餐厅评分（评论提交后自动刷新）
+     *
+     * @param id     餐厅ID
+     * @param rating 新评分
+     */
+    void updateRating(@Param("id") Long id, @Param("rating") java.math.BigDecimal rating);
+
+    /**
+     * 餐厅评论数 +1（首次评价时调用）
+     *
+     * @param id 餐厅ID
+     */
+    void incrementReviewCount(@Param("id") Long id);
 }

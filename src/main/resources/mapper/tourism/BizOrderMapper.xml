@@ -21,4 +21,30 @@
         UPDATE biz_order SET status = #{status} WHERE id = #{id}
     </update>
 
+    <!-- 查询超时未入场的停车订单（入场时间超过30分钟仍未入场） -->
+    <select id="selectTimeoutParkingOrders" resultType="com.qinhu.oasis.tourism.entity.BizOrder">
+        SELECT * FROM biz_order
+        WHERE deleted = 0
+          AND order_type = 2          <!-- 停车订单 -->
+          AND status = 0             <!-- 待入场 -->
+          AND TIMESTAMPDIFF(MINUTE, start_time, NOW()) > 30
+    </select>
+
+    <!-- 更新订单取消信息 -->
+    <update id="updateCancelInfo">
+        UPDATE biz_order
+        SET status = #{status},
+            cancel_reason = #{cancelReason},
+            cancelled_by = #{cancelledBy}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新订单实付金额（停车结算时使用） -->
+    <update id="updatePaidAmount">
+        UPDATE biz_order
+        SET paid_amount = #{paidAmount},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
 </mapper>

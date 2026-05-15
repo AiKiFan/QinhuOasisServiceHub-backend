@@ -8,6 +8,7 @@ import com.qinhu.oasis.common.result.PageResult;
 import com.qinhu.oasis.common.result.ResultCode;
 import com.qinhu.oasis.interpreter.entity.InterpreterProfile;
 import com.qinhu.oasis.interpreter.mapper.InterpreterProfileMapper;
+import com.qinhu.oasis.restaurant.mapper.RestaurantMapper;
 import com.qinhu.oasis.ugc.dto.CommentVO;
 import com.qinhu.oasis.ugc.dto.CreateCommentReq;
 import com.qinhu.oasis.ugc.entity.BizComment;
@@ -15,18 +16,20 @@ import com.qinhu.oasis.ugc.mapper.BizCommentMapper;
 import com.qinhu.oasis.ugc.mapper.UgcPostMapper;
 import com.qinhu.oasis.ugc.service.BizCommentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
  * 评价/评论业务服务实现
- * <p>当 target_type=POST 时，自动触发 ugc_post.comment_count +1</p>
  *
  * @author AiKiFan
  * @date 2026-04-28
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BizCommentServiceImpl implements BizCommentService {
@@ -37,6 +40,7 @@ public class BizCommentServiceImpl implements BizCommentService {
     private final BizCommentMapper bizCommentMapper;
     private final UgcPostMapper ugcPostMapper;
     private final InterpreterProfileMapper interpreterProfileMapper;
+    private final RestaurantMapper restaurantMapper;
     private final I18nUtil i18nUtil;
 
     @Override
@@ -51,38 +55,76 @@ public class BizCommentServiceImpl implements BizCommentService {
             }
         }
 
-        BizComment comment = new BizComment();
-        comment.setUserId(userId);
-        comment.setTargetId(req.getTargetId());
-        comment.setTargetType(req.getTargetType());
-        comment.setContent(req.getContent());
-        comment.setRating(req.getRating());
-        comment.setImages(req.getImages() != null ? JSONUtil.toJsonStr(req.getImages()) : null);
-        comment.setParentId(req.getParentId());
-        comment.setOrderId(req.getOrderId());
-        comment.setStatus(COMMENT_STATUS_NORMAL);
+        BizComment existing = bizCommentMapper.selectByUserAndTarget(
+                userId, req.getTargetId(), req.getTargetType());
 
-        bizCommentMapper.insert(comment);
+        boolean isNew = (existing == null);
+        if (isNew) {
+            // 首次评价：插入新记录
+            BizComment comment = new BizComment();
+            comment.setUserId(userId);
+            comment.setTargetId(req.getTargetId());
+            comment.setTargetType(req.getTargetType());
+            comment.setContent(req.getContent());
+            comment.setRating(req.getRating());
+            comment.setImages(req.getImages() != null ? JSONUtil.toJsonStr(req.getImages()) : null);
+            comment.setParentId(req.getParentId());
+            comment.setOrderId(req.getOrderId());
+            comment.setStatus(COMMENT_STATUS_NORMAL);
+            bizCommentMapper.insert(comment);
+        } else {
+            // 已评价过：更新原记录
+            existing.setContent(req.getContent());
+            existing.setRating(req.getRating());
+            existing.setImages(req.getImages() != null ? JSONUtil.toJsonStr(req.getImages()) : null);
+            bizCommentMapper.updateById(existing);
+        }
 
-        // 评论攻略时同步更新 comment_count
-        if (CommentTargetType.POST == req.getTargetType()) {
+        // 评论攻略时同步更新 comment_count（仅首次）
+        if (isNew && CommentTargetType.POST == req.getTargetType()) {
             ugcPostMapper.incrementCommentCount(req.getTargetId());
         }
 
-        // 重新查询以获取 author 信息（JOIN sys_user）
+        // 同步更新目标评分（餐厅/译员）
+        syncRating(req.getTargetId(), req.getTargetType(), isNew);
+
+        // 返回评论详情
         List<CommentVO> results = bizCommentMapper.selectByTarget(
                 req.getTargetId(), req.getTargetType(), 0, 1);
         if (!results.isEmpty()) {
             return results.get(0);
         }
 
-        // 兜底：手动构建 VO（理论上不会走到此处）
+        // 兜底
         CommentVO vo = new CommentVO();
-        vo.setId(comment.getId());
+        vo.setId(existing != null ? existing.getId() : null);
         vo.setUserId(userId);
-        vo.setContent(comment.getContent());
-        vo.setRating(comment.getRating());
+        vo.setContent(req.getContent());
+        vo.setRating(req.getRating());
         return vo;
+    }
+
+    /**
+     * 重新统计并更新目标评分
+     *
+     * @param targetId   目标ID
+     * @param targetType 目标类型
+     * @param isNewReview 是否为首次评价（决定是否 +1 reviewCount）
+     */
+    private void syncRating(Long targetId, int targetType, boolean isNewReview) {
+        Double avg = bizCommentMapper.avgRating(targetId, targetType);
+        if (avg == null) return;
+
+        BigDecimal rating = BigDecimal.valueOf(avg).setScale(2, java.math.RoundingMode.HALF_UP);
+
+        if (targetType == CommentTargetType.RESTAURANT) {
+            restaurantMapper.updateRating(targetId, rating);
+            if (isNewReview) {
+                restaurantMapper.incrementReviewCount(targetId);
+            }
+        } else if (targetType == CommentTargetType.INTERPRETER) {
+            interpreterProfileMapper.updateRating(targetId, rating);
+        }
     }
 
     @Override

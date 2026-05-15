@@ -101,4 +101,9 @@
         WHERE id = #{id}
     </update>
 
+    <!-- 更新译员评分（评论提交后自动刷新） -->
+    <update id="updateRating">
+        UPDATE interpreter_profile SET rating = #{rating} WHERE id = #{id}
+    </update>
+
 </mapper>

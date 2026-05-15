@@ -23,6 +23,35 @@ public interface BizCommentMapper {
     int insert(BizComment comment);
 
     /**
+     * 根据用户ID + 目标查询已有评论（用于去重）
+     *
+     * @param userId     用户ID
+     * @param targetId   目标ID
+     * @param targetType 目标类型
+     * @return 已存在的评论，未找到时返回 null
+     */
+    BizComment selectByUserAndTarget(@Param("userId") Long userId,
+                                    @Param("targetId") Long targetId,
+                                    @Param("targetType") int targetType);
+
+    /**
+     * 更新已有评论（内容/评分/图片）
+     *
+     * @param comment 评论实体（必须含 id）
+     * @return 影响行数
+     */
+    int updateById(BizComment comment);
+
+    /**
+     * 统计指定目标的有效评论平均分
+     *
+     * @param targetId   目标ID
+     * @param targetType 目标类型
+     * @return 平均分（无评论时返回 null）
+     */
+    Double avgRating(@Param("targetId") Long targetId, @Param("targetType") int targetType);
+
+    /**
      * 分页查询指定目标的一级评论（LEFT JOIN sys_user 获取作者信息）
      *
      * @param targetId   目标 ID

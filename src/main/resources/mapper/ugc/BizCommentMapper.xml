@@ -44,4 +44,36 @@
           AND parent_id IS NULL
     </select>
 
+    <!-- 根据用户+目标查询已有评论（用于去重） -->
+    <select id="selectByUserAndTarget" resultType="com.qinhu.oasis.ugc.entity.BizComment">
+        SELECT * FROM biz_comment
+        WHERE deleted = 0
+          AND status = 1
+          AND user_id = #{userId}
+          AND target_id = #{targetId}
+          AND target_type = #{targetType}
+          AND parent_id IS NULL
+        LIMIT 1
+    </select>
+
+    <!-- 更新已有评论 -->
+    <update id="updateById" parameterType="com.qinhu.oasis.ugc.entity.BizComment">
+        UPDATE biz_comment
+        SET content = #{content},
+            rating = #{rating},
+            images = #{images},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 统计目标的有效评论平均分 -->
+    <select id="avgRating" resultType="java.lang.Double">
+        SELECT AVG(rating) FROM biz_comment
+        WHERE deleted = 0
+          AND status = 1
+          AND target_id = #{targetId}
+          AND target_type = #{targetType}
+          AND rating IS NOT NULL
+    </select>
+
 </mapper>

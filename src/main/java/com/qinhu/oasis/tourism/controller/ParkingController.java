@@ -8,6 +8,8 @@ import com.qinhu.oasis.common.security.LoginUser;
 import com.qinhu.oasis.tourism.dto.ParkingOrderReq;
 import com.qinhu.oasis.tourism.dto.ParkingOrderVO;
 import com.qinhu.oasis.tourism.dto.ParkingSpaceVO;
+import com.qinhu.oasis.tourism.dto.BookSpotReq;
+import com.qinhu.oasis.tourism.dto.ParkingSpotVO;
 import com.qinhu.oasis.tourism.service.ParkingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -74,5 +76,40 @@ public class ParkingController {
         }
         parkingService.cancelOrder(orderId, userId);
         return Result.ok();
+    }
+
+    // ───────────── 新版：按车位预约 ─────────────
+
+    /**
+     * 查询某区域所有车位状态（给前端渲染可视化布局）
+     */
+    @GetMapping("/zones/{zoneId}/spots")
+    public Result<List<ParkingSpotVO>> getZoneSpots(@PathVariable Long zoneId) {
+        return Result.ok(parkingService.getZoneSpots(zoneId));
+    }
+
+    /**
+     * 预约选位（用户点击某个空闲车位）
+     */
+    @PostMapping("/spots/{spotId}/book")
+    public Result<ParkingSpotVO> bookSpot(@PathVariable Long spotId, @RequestBody BookSpotReq req) {
+        Long userId = LoginUser.getUserId();
+        if (userId == null) {
+            throw new BizException(ResultCode.UNAUTHORIZED, i18nUtil.msg(ResultCode.UNAUTHORIZED));
+        }
+        req.setSpotId(spotId);
+        return Result.ok(parkingService.bookSpot(req, userId));
+    }
+
+    /**
+     * 自助结算离场（点击已占用/超时车位）
+     */
+    @PostMapping("/spots/{spotId}/settle")
+    public Result<ParkingSpotVO> settleSpot(@PathVariable Long spotId) {
+        Long userId = LoginUser.getUserId();
+        if (userId == null) {
+            throw new BizException(ResultCode.UNAUTHORIZED, i18nUtil.msg(ResultCode.UNAUTHORIZED));
+        }
+        return Result.ok(parkingService.settleSpot(spotId, userId));
     }
 }

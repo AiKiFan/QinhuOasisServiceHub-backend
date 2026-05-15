@@ -3,6 +3,7 @@ package com.qinhu.oasis;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 沁湖驿站云服务平台 启动类
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 @MapperScan("com.qinhu.oasis.*.mapper")
+@EnableScheduling
 public class QinhuOasisApplication {
 
     public static void main(String[] args) {

@@ -1,8 +1,6 @@
 package com.qinhu.oasis.tourism.service;
 
-import com.qinhu.oasis.tourism.dto.ParkingOrderReq;
-import com.qinhu.oasis.tourism.dto.ParkingOrderVO;
-import com.qinhu.oasis.tourism.dto.ParkingSpaceVO;
+import com.qinhu.oasis.tourism.dto.*;
 
 import java.util.List;
 
@@ -14,35 +12,44 @@ import java.util.List;
  */
 public interface ParkingService {
 
-    /**
-     * 查询所有停车区域及其实时可用库存（从 Redis 读取）
-     *
-     * @return 停车区域列表
-     */
+    // ── 旧版：按区域预约 ──
     List<ParkingSpaceVO> listSpaces();
-
-    /**
-     * 预约车位
-     * <p>防超卖流程：Lua 原子扣减 Redis → DB 写订单 → DB CAS 扣减库存；DB 失败时补偿 Redis</p>
-     *
-     * @param req    预约请求参数
-     * @param userId 当前登录用户 ID
-     * @return 预约订单 VO
-     */
     ParkingOrderVO bookParking(ParkingOrderReq req, Long userId);
-
-    /**
-     * 取消车位预约（仅允许取消自己的 PENDING/ACCEPTED 状态订单）
-     * <p>取消后同步恢复 MySQL available_count 与 Redis 库存</p>
-     *
-     * @param orderId 订单 ID
-     * @param userId  当前登录用户 ID
-     */
     void cancelOrder(Long orderId, Long userId);
+    void initStockToRedis();
+
+    // ── 新版：按车位预约 ──
 
     /**
-     * 将所有停车区域的库存初始化到 Redis（key: parking:stock:{id}）
-     * <p>由 {@link com.qinhu.oasis.common.init.RedisDataInitializer} 在应用启动时调用</p>
+     * 查询某区域所有车位的实时状态（给前端渲染可视化布局）
+     *
+     * @param zoneId 区域ID
+     * @return 车位VO列表
      */
-    void initStockToRedis();
+    List<ParkingSpotVO> getZoneSpots(Long zoneId);
+
+    /**
+     * 预约某个具体车位（选位预约）
+     *
+     * @param req  预约请求（车位ID+车牌+时长）
+     * @param userId 当前登录用户ID
+     * @return 预约车位VO
+     */
+    ParkingSpotVO bookSpot(BookSpotReq req, Long userId);
+
+    /**
+     * 自助结算离场（点击已占用/超时车位）
+     *
+     * @param spotId 车位ID
+     * @param userId  当前登录用户ID
+     * @return 费用明细VO
+     */
+    ParkingSpotVO settleSpot(Long spotId, Long userId);
+
+    /**
+     * 超时检测定时任务：已废弃，改为实时计时制
+     * @deprecated 实时计时制无需超时检测，用户可随时结算
+     */
+    @Deprecated
+    void detectOvertime();
 }

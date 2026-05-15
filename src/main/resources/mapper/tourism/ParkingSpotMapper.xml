@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qinhu.oasis.tourism.mapper.ParkingSpotMapper">
+
+    <select id="selectById" resultType="com.qinhu.oasis.tourism.entity.ParkingSpot">
+        SELECT * FROM parking_spot WHERE id = #{id}
+    </select>
+
+    <select id="selectByZoneId" resultType="com.qinhu.oasis.tourism.entity.ParkingSpot">
+        SELECT * FROM parking_spot WHERE zone_id = #{zoneId} ORDER BY zone_id, CAST(SUBSTRING_INDEX(spot_code, '-', -1) AS UNSIGNED)
+    </select>
+
+    <select id="selectAllOvertime" resultType="com.qinhu.oasis.tourism.entity.ParkingSpot">
+        SELECT * FROM parking_spot WHERE status = 2
+    </select>
+
+    <select id="selectAllOccupied" resultType="com.qinhu.oasis.tourism.entity.ParkingSpot">
+        SELECT * FROM parking_spot WHERE status = 1
+    </select>
+
+    <update id="updateSpot">
+        UPDATE parking_spot
+        SET status = #{status},
+            vehicle_no = #{vehicleNo},
+            user_id = #{userId},
+            order_id = #{orderId},
+            start_time = #{startTime},
+            planned_end_time = #{plannedEndTime},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="resetSpot">
+        UPDATE parking_spot
+        SET status = 0,
+            vehicle_no = NULL,
+            user_id = NULL,
+            order_id = NULL,
+            start_time = NULL,
+            planned_end_time = NULL,
+            actual_end_time = NOW(),
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="countFreeByZone" resultType="int">
+        SELECT COUNT(*) FROM parking_spot WHERE zone_id = #{zoneId} AND status = 0
+    </select>
+
+</mapper>
