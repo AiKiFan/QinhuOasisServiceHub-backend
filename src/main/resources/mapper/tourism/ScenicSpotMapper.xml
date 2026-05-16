@@ -43,4 +43,62 @@
         LIMIT #{limit}
     </select>
 
+    <!-- ───────────── 管理员接口 ───────────── -->
+
+    <select id="selectAdminPage" resultType="com.qinhu.oasis.tourism.entity.ScenicSpot">
+        SELECT * FROM biz_scenic_spot
+        WHERE deleted = 0
+        <if test="keyword != null and keyword.trim() != ''">
+            AND (name LIKE CONCAT('%', #{keyword}, '%') OR address LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*) FROM biz_scenic_spot
+        WHERE deleted = 0
+        <if test="keyword != null and keyword.trim() != ''">
+            AND (name LIKE CONCAT('%', #{keyword}, '%') OR address LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO biz_scenic_spot
+            (name, name_en, description, description_en, cover_img, images, address,
+             lat, lng, opening_hours, ticket_price, rating, review_count, tags,
+             sort_score, status, deleted, create_time, update_time)
+        VALUES
+            (#{name}, #{nameEn}, #{description}, #{descriptionEn}, #{coverImg}, #{images}, #{address},
+             #{lat}, #{lng}, #{openingHours}, #{ticketPrice}, #{rating}, #{reviewCount}, #{tags},
+             #{sortScore}, #{status}, 0, NOW(), NOW())
+    </insert>
+
+    <update id="updateById">
+        UPDATE biz_scenic_spot
+        SET name = #{name},
+            name_en = #{nameEn},
+            description = #{description},
+            description_en = #{descriptionEn},
+            cover_img = #{coverImg},
+            images = #{images},
+            address = #{address},
+            lat = #{lat},
+            lng = #{lng},
+            opening_hours = #{openingHours},
+            ticket_price = #{ticketPrice},
+            tags = #{tags},
+            status = #{status},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteById">
+        UPDATE biz_scenic_spot SET deleted = 1, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE biz_scenic_spot SET status = #{status}, update_time = NOW() WHERE id = #{id}
+    </update>
+
 </mapper>

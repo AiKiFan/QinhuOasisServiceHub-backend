@@ -1,5 +1,9 @@
 package com.qinhu.oasis.tourism.service.impl;
 
+import com.qinhu.oasis.common.exception.BizException;
+import com.qinhu.oasis.common.i18n.I18nUtil;
+import com.qinhu.oasis.common.result.PageResult;
+import com.qinhu.oasis.common.result.ResultCode;
 import com.qinhu.oasis.tourism.dto.ScenicSpotDetailVO;
 import com.qinhu.oasis.tourism.dto.ScenicSpotListVO;
 import com.qinhu.oasis.tourism.entity.ScenicSpot;
@@ -24,6 +28,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 public class ScenicSpotServiceImpl implements ScenicSpotService {
 
     private final ScenicSpotMapper scenicSpotMapper;
+    private final I18nUtil i18nUtil;
 
     @Override
     public List<ScenicSpotListVO> getScenicSpotList(int page, int size) {
@@ -48,6 +53,67 @@ public class ScenicSpotServiceImpl implements ScenicSpotService {
         }
         List<ScenicSpot> spots = scenicSpotMapper.selectByIds(ids);
         return spots.stream().map(this::toListVO).collect(Collectors.toList());
+    }
+
+    // ───────────── 管理员接口 ─────────────
+
+    @Override
+    public PageResult<ScenicSpot> adminList(String keyword, int page, int size) {
+        int offset = (page - 1) * size;
+        long total = scenicSpotMapper.countAdminPage(keyword);
+        List<ScenicSpot> list = scenicSpotMapper.selectAdminPage(keyword, offset, size);
+        return PageResult.of(total, list);
+    }
+
+    @Override
+    public ScenicSpot adminCreate(ScenicSpot scenicSpot) {
+        if (scenicSpot.getStatus() == null) {
+            scenicSpot.setStatus(1);
+        }
+        if (scenicSpot.getRating() == null) {
+            scenicSpot.setRating(java.math.BigDecimal.valueOf(5.00));
+        }
+        if (scenicSpot.getReviewCount() == null) {
+            scenicSpot.setReviewCount(0);
+        }
+        if (scenicSpot.getSortScore() == null) {
+            scenicSpot.setSortScore(0.0);
+        }
+        scenicSpotMapper.insert(scenicSpot);
+        return scenicSpot;
+    }
+
+    @Override
+    public ScenicSpot adminUpdate(ScenicSpot incoming) {
+        if (incoming.getId() == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, i18nUtil.msg(ResultCode.PARAM_ERROR));
+        }
+        ScenicSpot existing = scenicSpotMapper.selectById(incoming.getId());
+        if (existing == null) {
+            throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+        }
+        incoming.setRating(existing.getRating());
+        incoming.setReviewCount(existing.getReviewCount());
+        incoming.setSortScore(existing.getSortScore());
+        scenicSpotMapper.updateById(incoming);
+        return scenicSpotMapper.selectById(incoming.getId());
+    }
+
+    @Override
+    public void adminDelete(Long id) {
+        ScenicSpot existing = scenicSpotMapper.selectById(id);
+        if (existing == null) {
+            throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+        }
+        scenicSpotMapper.deleteById(id);
+    }
+
+    @Override
+    public void adminUpdateStatus(Long id, Integer status) {
+        if (id == null || status == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, i18nUtil.msg(ResultCode.PARAM_ERROR));
+        }
+        scenicSpotMapper.updateStatus(id, status);
     }
 
     // ───────────── 私有转换方法 ─────────────

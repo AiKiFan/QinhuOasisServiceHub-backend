@@ -44,4 +44,36 @@ public interface ScenicSpotMapper {
      * 查询热门景点（按sort_score排序）
      */
     List<ScenicSpot> selectTopByScore(@Param("limit") int limit);
+
+    // ───────────── 管理员接口 ─────────────
+
+    /**
+     * 管理员分页查询（支持关键词搜索）
+     */
+    List<ScenicSpot> selectAdminPage(@Param("keyword") String keyword, @Param("offset") int offset, @Param("size") int size);
+
+    /**
+     * 管理员分页总数
+     */
+    long countAdminPage(@Param("keyword") String keyword);
+
+    /**
+     * 新增景点
+     */
+    void insert(ScenicSpot scenicSpot);
+
+    /**
+     * 更新景点
+     */
+    void updateById(ScenicSpot scenicSpot);
+
+    /**
+     * 删除景点（软删除）
+     */
+    void deleteById(@Param("id") Long id);
+
+    /**
+     * 更新景点状态
+     */
+    void updateStatus(@Param("id") Long id, @Param("status") Integer status);
 }
