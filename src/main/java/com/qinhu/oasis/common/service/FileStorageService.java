@@ -69,8 +69,9 @@ public class FileStorageService {
                             .build()
             );
 
-            // 生成预签名 URL（有效期 7 天）
-            return minioClient.getPresignedObjectUrl(
+            // 生成预签名 URL（有效期 7 天），并替换为可访问的主机名
+            // 解决 localhost/127.0.0.1 预签名 URL 在手机端不可用的问题
+            String presignedUrl = minioClient.getPresignedObjectUrl(
                     io.minio.GetPresignedObjectUrlArgs.builder()
                             .bucket(bucket)
                             .object(objectName)
@@ -78,10 +79,45 @@ public class FileStorageService {
                             .expiry(7, TimeUnit.DAYS)
                             .build()
             );
+            return replacePresignedUrlHost(presignedUrl);
         } catch (Exception e) {
             log.error("Minio upload failed: bucket={}, object={}", bucket, objectName, e);
             throw new BizException(ResultCode.FILE_UPLOAD_FAIL,
                     i18nUtil.msg(ResultCode.FILE_UPLOAD_FAIL));
+        }
+    }
+
+    /**
+     * 将预签名 URL 中的主机名替换为 minio.endpoint 中的可访问地址
+     * <p>MinIO 预签名 URL 的签名与主机名绑定，必须保证 URL 中的 host
+     * 与 minio.endpoint 一致，才能在所有设备上通过验签。</p>
+     */
+    private String replacePresignedUrlHost(String presignedUrl) {
+        if (presignedUrl == null || presignedUrl.isBlank()) {
+            return presignedUrl;
+        }
+        try {
+            java.net.URL original = new java.net.URL(presignedUrl);
+            java.net.URL target = new java.net.URL(endpoint);
+
+            String newHost = target.getHost();
+            int newPort = target.getPort() != -1 ? target.getPort() : target.getDefaultPort();
+
+            // 重建 URL：协议://新主机:端口/路径?查询#哈希
+            StringBuilder sb = new StringBuilder();
+            sb.append(original.getProtocol()).append("://");
+            sb.append(newHost);
+            if (newPort != -1) {
+                sb.append(":").append(newPort);
+            }
+            sb.append(original.getPath());
+            if (original.getQuery() != null) {
+                sb.append("?").append(original.getQuery());
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("Failed to replace presigned URL host: {}", presignedUrl, e);
+            return presignedUrl;
         }
     }
 

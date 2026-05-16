@@ -12,6 +12,7 @@ import com.qinhu.oasis.feedback.dto.FeedbackVO;
 import com.qinhu.oasis.feedback.dto.ReplyFeedbackReq;
 import com.qinhu.oasis.feedback.dto.UpdateFeedbackReq;
 import com.qinhu.oasis.feedback.dto.AppendReplyReq;
+import com.qinhu.oasis.feedback.mapper.SysFeedbackMapper;
 import com.qinhu.oasis.feedback.service.FeedbackService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class FeedbackController {
 
     private final FeedbackService feedbackService;
+    private final SysFeedbackMapper feedbackMapper;
     private final I18nUtil i18nUtil;
 
     /**
@@ -69,6 +71,22 @@ public class FeedbackController {
             @RequestParam(defaultValue = "20") int size) {
         requireAdmin();
         return Result.ok(feedbackService.adminListFeedback(status, feedbackType, page, size));
+    }
+
+    /**
+     * 管理员查询投诉建议详情（需管理员角色）
+     *
+     * @param id 记录 ID
+     * @return 完整记录（含正文和图片）
+     */
+    @GetMapping("/admin/feedback/{id}")
+    public Result<FeedbackVO> adminDetail(@PathVariable Long id) {
+        requireAdmin();
+        FeedbackVO vo = feedbackMapper.selectById(id);
+        if (vo == null) {
+            throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+        }
+        return Result.ok(vo);
     }
 
     /**
