@@ -4,6 +4,7 @@ import com.qinhu.oasis.sys.entity.SysUser;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户 MyBatis Mapper 接口（XML 模式，对应 sys_user 表）
@@ -74,4 +75,9 @@ public interface SysUserMapper {
      * @return 影响行数
      */
     int updatePassword(@Param("id") Long id, @Param("password") String password);
+
+    /**
+     * 查询所有有头像的用户（用于图片清理）
+     */
+    List<SysUser> selectAllForCleanup();
 }

@@ -109,4 +109,7 @@ public interface InterpreterProfileMapper {
      * @param rating 新评分
      */
     void updateRating(@Param("id") Long id, @Param("rating") java.math.BigDecimal rating);
+
+    /** 查询所有有证书的译员档案（用于图片清理） */
+    List<InterpreterProfile> selectAllForCleanup();
 }

@@ -82,4 +82,10 @@ public interface UgcPostMapper {
      * @return 影响行数
      */
     int incrementCommentCount(Long id);
+
+    /** 查询所有有图片的 UGC 帖子（用于图片清理） */
+    List<UgcPost> selectAllForCleanup();
+
+    /** 更新 UGC 帖子 */
+    int updateById(UgcPost post);
 }

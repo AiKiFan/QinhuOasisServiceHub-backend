@@ -76,4 +76,7 @@ public interface ScenicSpotMapper {
      * 更新景点状态
      */
     void updateStatus(@Param("id") Long id, @Param("status") Integer status);
+
+    /** 查询所有景点（用于图片清理，含已删除） */
+    List<ScenicSpot> selectAllForCleanup();
 }

@@ -114,4 +114,11 @@
         UPDATE biz_restaurant SET review_count = review_count + 1 WHERE id = #{id}
     </update>
 
+    <!-- 图片清理：查询所有餐厅（含已删除） -->
+    <select id="selectAllForCleanup" resultType="com.qinhu.oasis.restaurant.entity.Restaurant">
+        SELECT * FROM biz_restaurant
+        WHERE (cover_img IS NOT NULL AND cover_img != '')
+           OR (images IS NOT NULL AND images != '')
+    </select>
+
 </mapper>

@@ -101,4 +101,11 @@
         UPDATE biz_scenic_spot SET status = #{status}, update_time = NOW() WHERE id = #{id}
     </update>
 
+    <!-- 图片清理：查询所有有图片的景点（含已删除） -->
+    <select id="selectAllForCleanup" resultType="com.qinhu.oasis.tourism.entity.ScenicSpot">
+        SELECT * FROM biz_scenic_spot
+        WHERE (cover_img IS NOT NULL AND cover_img != '')
+           OR (images IS NOT NULL AND images != '')
+    </select>
+
 </mapper>

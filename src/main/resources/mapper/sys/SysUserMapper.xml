@@ -72,4 +72,13 @@
         WHERE id = #{id}
     </update>
 
+    <!-- 图片清理：查询所有有头像的用户 -->
+    <select id="selectAllForCleanup" resultMap="BaseResultMap">
+        SELECT id, username, password, phone, email, nickname, avatar,
+               role, status, locale, last_login_ip, last_login_time,
+               create_time, update_time, deleted
+        FROM sys_user
+        WHERE avatar IS NOT NULL AND avatar != ''
+    </select>
+
 </mapper>

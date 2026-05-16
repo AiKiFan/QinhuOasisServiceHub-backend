@@ -106,4 +106,10 @@
         UPDATE interpreter_profile SET rating = #{rating} WHERE id = #{id}
     </update>
 
+    <!-- 图片清理：查询所有有证书的译员档案 -->
+    <select id="selectAllForCleanup" resultType="com.qinhu.oasis.interpreter.entity.InterpreterProfile">
+        SELECT * FROM interpreter_profile
+        WHERE cert_url IS NOT NULL AND cert_url != ''
+    </select>
+
 </mapper>

@@ -119,4 +119,7 @@ public interface RestaurantMapper {
      * @param id 餐厅ID
      */
     void incrementReviewCount(@Param("id") Long id);
+
+    /** 查询所有餐厅（用于图片清理，含已删除） */
+    List<Restaurant> selectAllForCleanup();
 }

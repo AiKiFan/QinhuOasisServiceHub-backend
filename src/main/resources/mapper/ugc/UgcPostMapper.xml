@@ -88,4 +88,21 @@
         UPDATE ugc_post SET comment_count = comment_count + 1 WHERE id = #{id}
     </update>
 
+    <!-- 图片清理：查询所有有图片的 UGC 帖子 -->
+    <select id="selectAllForCleanup" resultType="com.qinhu.oasis.ugc.entity.UgcPost">
+        SELECT * FROM ugc_post
+        WHERE deleted = 0
+          AND ((cover_img IS NOT NULL AND cover_img != '')
+               OR (images IS NOT NULL AND images != ''))
+    </select>
+
+    <!-- 更新 UGC 帖子（用于图片清理） -->
+    <update id="updateById" parameterType="com.qinhu.oasis.ugc.entity.UgcPost">
+        UPDATE ugc_post
+        SET cover_img = #{coverImg},
+            images    = #{images},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
 </mapper>
