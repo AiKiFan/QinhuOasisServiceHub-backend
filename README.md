@@ -1,494 +1,631 @@
+# 沁湖驿站 · Qinhu Oasis Service Hub
+
 <div align="center">
 
-# 🏞️ 沁湖驿站云服务平台
-### QinhuOasis Service Hub
+![Java](https://img.shields.io/badge/Java-17-007396?style=flat-square&logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-6DB33F?style=flat-square&logo=spring)
+![MyBatis](https://img.shields.io/badge/MyBatis-3.0.3-F7B032?style=flat-square)
+![Redis](https://img.shields.io/badge/Redis-7.0-DC382D?style=flat-square&logo=redis)
+![MinIO](https://img.shields.io/badge/MinIO-8.5.9-E02F20?style=flat-square&logo=minio)
+![JWT](https://img.shields.io/badge/JWT-0.12.5-000000?style=flat-square&logo=json-web-tokens)
 
-> 一站式智慧景区综合服务系统 · 双语国际化 · 高并发防超卖 · 对象存储全链路
+**沁湖驿站云服务平台 · 后端服务**
 
----
-
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.5-6DB33F?style=flat-square&logo=springboot&logoColor=white)
-![Java](https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
-![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=flat-square&logo=redis&logoColor=white)
-![MyBatis](https://img.shields.io/badge/MyBatis-3.0.3-C0392B?style=flat-square)
-![MinIO](https://img.shields.io/badge/MinIO-8.5.9-C72E49?style=flat-square&logo=minio&logoColor=white)
-![uniapp](https://img.shields.io/badge/uni--app-Vue3-42b883?style=flat-square&logo=vuedotjs&logoColor=white)
-![Hutool](https://img.shields.io/badge/Hutool-5.8.26-informational?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
-![Lines of Code](https://img.shields.io/badge/Java_LOC-5183-blueviolet?style=flat-square)
-![Files](https://img.shields.io/badge/Source_Files-94-blue?style=flat-square)
+*RESTful API · Spring Boot 3 · MyBatis + Redis + MinIO*
 
 </div>
 
 ---
 
-## 📌 项目简介
+## 1. 项目简介
 
-**沁湖驿站云服务平台**是一套面向景区的全栈综合服务系统，覆盖餐厅美食、智慧停车、游客内容（UGC）、学生译员服务和投诉建议五大业务域。
+沁湖驿站后端是基于 **Spring Boot 3** 构建的 RESTful API 服务，为 H5 前端、微信小程序等多端提供统一的数据接口。
 
-后端采用 **Spring Boot 3.2.5 模块化单体架构**，以 Redis 承载高并发热点数据，以 MinIO 管理多类型媒体资产；前端基于 **uniapp + Vue3** 实现「一套代码、多端发布」。全系统从接口层到数据层均支持 **中英文双语（zh-CN / en-US）** 无缝切换。
+核心能力：
 
----
-
-## ✨ 技术亮点（Key Features）
-
-### 🔴 Redis Lua 脚本保障高并发原子性
-
-车位抢占场景是经典的「超卖」重灾区。本项目使用 **单条 Lua 脚本** 将「读库存 → 判断 → 扣减」合并为 Redis 的单个原子操作，彻底消除 TOCTOU 竞态条件：
-
-```lua
--- parking_deduct_stock.lua
-local stock = redis.call('GET', KEYS[1])
-if stock == false then return -1 end   -- Key不存在（区域未初始化）
-if tonumber(stock) <= 0 then return 0 end  -- 库存耗尽
-redis.call('DECR', KEYS[1])
-return 1                               -- 扣减成功
-```
-
-配合 Spring `@Transactional` 在数据库层以 **CAS 乐观锁**（`WHERE available_count > 0`）兜底，即使 Lua 成功而 DB 写失败，也会在 `catch` 块中 `INCR` 补回 Redis 库存，**双层防护、零超卖**。
+| 能力 | 说明 |
+|------|------|
+| **用户体系** | JWT 无状态认证，BCrypt 密码加密，支持游客/译员/管理员三级角色 |
+| **景区导览** | 景点 CRUD + Redis ZSet 热度排行 |
+| **美食排行** | 餐厅分类筛选 + Redis 热度分排序 |
+| **译员预约** | 雪花算法订单号、24h 前置预约、角色升级联动 |
+| **智慧停车** | Redis Lua 脚本原子扣库存、分布式锁防超卖、入场/离场结算 |
+| **文件存储** | MinIO 预签名 URL + Bucket 隔离策略 |
+| **国际化** | 请求头 Accept-Language 解析，i18n 消息统一返回 |
+| **统一异常** | 业务异常（BizException）+ 全局异常处理器，返回结构化错误码 |
 
 ---
 
-### 🟡 Redis ZSet 驱动实时热度排行
+## 2. 核心技术栈
 
-餐厅热度排行使用 **Redis ZSet** 承载，Score 公式为：
+### 2.1 技术选型
+
+| 类别 | 技术 | 版本 |
+|------|------|------|
+| 基础框架 | Spring Boot | 3.2.5 |
+| Java 版本 | OpenJDK | 17 |
+| ORM | MyBatis Spring Boot Starter | 3.0.3 |
+| 数据库 | MySQL Connector/J | 8.x |
+| 缓存 | Spring Data Redis | 内置 |
+| 对象存储 | MinIO Java SDK | 8.5.9 |
+| 认证 | jjwt (JJWT) | 0.12.5 |
+| 工具库 | Hutool | 5.8.26 |
+| 构建 | Maven | 3.9+ |
+| 校验 | Hibernate Validator | 内置 |
+
+### 2.2 架构总览
 
 ```
-sort_score = rating × 20 + LOG₁₀(review_count + 1) × 10
+三层架构 + 公共层（common）
+┌──────────────────────────────────────────────┐
+│                   Controller                  │
+│   (Auth / Restaurant / Interpreter / Parking…)│
+├──────────────────────────────────────────────┤
+│                    Service                     │
+│   (业务逻辑 + 事务管理 + 缓存读写)              │
+├──────────────────────────────────────────────┤
+│                    Mapper                      │
+│   (MyBatis XML Mapper)                        │
+├──────────────────────────────────────────────┤
+│  MySQL  │  Redis  │  MinIO  │  第三方API     │
+└──────────────────────────────────────────────┘
 ```
-
-应用启动时由 `RedisDataInitializer`（`ApplicationRunner`）将 MySQL 全量数据预热到 ZSet。每次新增评价后异步 `ZADD` 覆盖更新，**查询排行 O(log N)，写入评价 O(log N)**，不影响主链路性能。
 
 ---
 
-### 🟢 MinIO 分布式对象存储全链路
-
-系统以 **4 个独立桶**隔离不同安全等级的资产：
-
-| 桶名 | 访问策略 | 存储内容 |
-|------|---------|---------|
-| `qosh-ugc-images` | public-read | 游客攻略图、评论晒图 |
-| `qosh-interpreter-certs` | 私密 | 译员资质证书（学号/成绩单）|
-| `qosh-public-static` | public-read | 景区地图、官方攻略配图 |
-| `qosh-sys-assets` | 私密 | 报表导出、日志备份 |
-
-文件路径规则：`{bucket}/yyyyMMdd/{UUID}.{ext}`，天级分区防止单目录膨胀；`FileStorageService` 统一校验 MIME 类型（JPEG/PNG/WebP/GIF），杜绝恶意文件上传。
-
----
-
-### 🔵 i18n 国际化全链路支持
-
-国际化渗透到每一层，前端只需切换 `Accept-Language` Header：
+## 3. 项目目录结构
 
 ```
-请求层：Accept-Language: en-US  →  zh-CN（默认）
-         ↓
-拦截器：LocaleContextHolder.set(Locale)  ← 解析 Header 写入 ThreadLocal
-         ↓
-Service：LocaleContextHolder.get().getLanguage()
-         → isEnglish() → 选择 titleEn / introductionEn
-         ↓
-VO 层：displayTitle / displayName / displayIntroduction（已解析字段）
-         ↓
-错误信息：I18nUtil.msg(ResultCode) → MessageSource.getMessage(key, locale)
-```
-
-数据库双语字段（`name` / `name_en`，`title` / `title_en`）+ 错误消息三文件（`messages.properties` / `messages_zh_CN.properties` / `messages_en_US.properties`）完整覆盖所有业务场景。
-
----
-
-### ⚫ 阿里巴巴 Java 开发手册（嵩山版）严格落地
-
-项目以 **P3C 规范**作为编码底线，核心约束如下：
-
-| 规范条款 | 项目实践 |
-|---------|---------|
-| 禁止魔法值，使用常量类 | `PostType` / `OrderStatus` / `UserRole` 等 10+ 个 `final class` 常量 |
-| 接口方法必须有 Javadoc | 所有 `Service` 接口、`Mapper` 接口方法均附带完整注释 |
-| `@author` 标注到类 | 全量 94 个 Java 文件统一注明 `@author AiKiFan` |
-| 事务注解 `rollbackFor` 明确指定 | 全部写操作使用 `@Transactional(rollbackFor = Exception.class)` |
-| 日志使用 `@Slf4j`，禁用 `System.out` | Service 实现层统一使用 SLF4J，关键操作打印结构化日志 |
-| 集合返回不允许 `null` | Mapper 返回列表时 MyBatis 自动返回空集合，VO 层无 NPE 风险 |
-
----
-
-## 🗂️ 项目目录结构
-
-```
-qinhu-smart-tourism-cloud-platform/
+src/main/java/com/qinhu/oasis/
+├── common/                          # 公共基础设施层
+│   ├── config/
+│   │   ├── MinioConfig.java        # MinIO 客户端 Bean 配置
+│   │   ├── RedisConfig.java         # RedisTemplate（JSON序列化 + String）
+│   │   └── WebMvcConfig.java        # CORS + 拦截器注册（I18n → Auth）
+│   ├── constant/                    # 业务常量枚举
+│   │   ├── CommentTargetType.java   # 评论对象类型（餐厅/攻略/译员订单/停车订单）
+│   │   ├── FeedbackStatus.java      # 反馈状态（待处理/处理中/已解决/已关闭）
+│   │   ├── FeedbackType.java        # 反馈类型（投诉/建议/咨询/其他）
+│   │   ├── InterpreterStatus.java   # 译员状态（待审核/已通过/已拒绝）
+│   │   ├── LikeTargetType.java      # 点赞对象类型（攻略/评论）
+│   │   ├── OrderStatus.java         # 订单状态（待接单/已接单/进行中/已完成/已取消/退款中/已退款）
+│   │   ├── OrderType.java           # 订单类型（翻译服务/停车预约）
+│   │   ├── PostStatus.java          # 帖子状态（草稿/已发布/审核中/已下架）
+│   │   ├── PostType.java            # 帖子类型（官方攻略/游客攻略/游客动态）
+│   │   ├── SpaceStatus.java         # 停车区域状态（关闭/开放/维护中）
+│   │   └── UserRole.java            # 用户角色（游客/学生译员/管理员）
+│   ├── controller/
+│   │   └── WeatherController.java   # 天气 API 代理（GET /api/weather/now）
+│   ├── dto/
+│   │   └── WeatherVO.java          # 天气数据视图对象
+│   ├── exception/
+│   │   ├── BizException.java        # 业务异常（携带 ResultCode + i18n 消息）
+│   │   └── GlobalExceptionHandler.java  # 全局异常处理（统一响应格式）
+│   ├── i18n/
+│   │   ├── I18nInterceptor.java     # 语言解析拦截器（优先级：?lang= > Accept-Language > zh_CN）
+│   │   ├── I18nUtil.java            # 消息解析工具（基于 MessageSource）
+│   │   └── LocaleContextHolder.java # ThreadLocal<Locale> 持有器
+│   ├── init/                        # 应用启动初始化
+│   │   ├── AdminUserInitializer.java    # 管理员账号初始化（默认 admin/Admin@123456）
+│   │   ├── MinioBucketInitializer.java  # MinIO Bucket 创建（4个桶）
+│   │   └── RedisDataInitializer.java    # Redis 数据预热（车位库存 + 餐厅排行）
+│   ├── result/
+│   │   ├── PageResult.java          # 分页结果（total + list）
+│   │   ├── Result.java              # 统一响应（code + message + data）
+│   │   └── ResultCode.java          # 业务错误码枚举（100+错误码）
+│   ├── security/
+│   │   ├── AuthInterceptor.java     # JWT 鉴权拦截器（解析 Bearer Token）
+│   │   ├── JwtUtil.java             # JWT 工具（HS256 签名/验签）
+│   │   └── LoginUser.java           # ThreadLocal 用户上下文（userId + role）
+│   └── service/
+│       ├── FileStorageService.java  # 文件上传服务（支持 4 个桶，预签名 URL）
+│       ├── WeatherService.java      # 天气服务接口
+│       └── impl/
+│           └── WeatherServiceImpl.java  # 和风天气 API 实现（Redis 30min 缓存）
 │
-├── QinhuOasisServiceHub-backend/          # Spring Boot 后端
-│   ├── pom.xml                            # Maven 依赖（Java 17 / Spring Boot 3.2.5）
-│   └── src/main/
-│       ├── java/com/qinhu/oasis/
-│       │   ├── OasisApplication.java       # 启动类（@MapperScan 覆盖所有模块）
-│       │   │
-│       │   ├── common/                    # ★ 公共基础设施层
-│       │   │   ├── config/                # WebMvcConfig（跨域 + 拦截器注册）
-│       │   │   ├── constant/              # 枚举常量（UserRole/OrderStatus/PostType…）
-│       │   │   ├── exception/             # BizException + GlobalExceptionHandler
-│       │   │   ├── i18n/                  # I18nUtil + LocaleContextHolder（ThreadLocal）
-│       │   │   ├── init/                  # RedisDataInitializer（ApplicationRunner）
-│       │   │   ├── result/                # Result<T> + PageResult<T> + ResultCode
-│       │   │   ├── security/              # JwtUtil + AuthInterceptor + LoginUser（ThreadLocal）
-│       │   │   └── service/               # FileStorageService（MinIO 统一上传）
-│       │   │
-│       │   ├── sys/                       # 用户认证域
-│       │   │   ├── entity/SysUser.java
-│       │   │   ├── dto/                   # RegisterReq / LoginVO / UserInfoVO
-│       │   │   ├── mapper/SysUserMapper
-│       │   │   ├── service/impl/SysUserServiceImpl  # BCrypt 加密，Snowflake 无状态 JWT
-│       │   │   └── controller/            # AuthController + UserController
-│       │   │
-│       │   ├── restaurant/                # 美食点评域（Redis ZSet 热度排行）
-│       │   │   ├── entity/Restaurant.java
-│       │   │   ├── dto/                   # RestaurantListVO / DetailVO / RankListVO
-│       │   │   ├── mapper/RestaurantMapper
-│       │   │   ├── service/impl/          # ZSet 排行 + i18n displayName
-│       │   │   └── controller/RestaurantController
-│       │   │
-│       │   ├── tourism/                   # 智慧旅游域（Lua 原子防超卖）
-│       │   │   ├── entity/                # ParkingSpace + BizOrder
-│       │   │   ├── dto/                   # ParkingSpaceVO / ParkingOrderReq / ParkingOrderVO
-│       │   │   ├── mapper/                # ParkingSpaceMapper + BizOrderMapper
-│       │   │   ├── service/impl/ParkingServiceImpl  # Lua 脚本 + CAS 乐观锁 + 补偿事务
-│       │   │   └── controller/ParkingController
-│       │   │
-│       │   ├── ugc/                       # 用户内容域（攻略 / 评论 / 点赞 / 上传）
-│       │   │   ├── entity/                # UgcPost + BizComment + UgcLike
-│       │   │   ├── dto/                   # CreatePostReq / PostListVO / PostDetailVO…
-│       │   │   ├── mapper/                # UgcPostMapper + BizCommentMapper + UgcLikeMapper
-│       │   │   ├── service/impl/          # 点赞幂等 + @JsonRawValue 图片数组 + 浏览量++
-│       │   │   └── controller/            # PostController + CommentController + FileController
-│       │   │
-│       │   ├── interpreter/               # 译员服务域（档案 / 接单 / 订单）
-│       │   │   ├── entity/InterpreterProfile.java
-│       │   │   ├── dto/                   # ApplyInterpreterReq / InterpreterVO / BookReq…
-│       │   │   ├── mapper/                # InterpreterProfileMapper + InterpreterOrderMapper
-│       │   │   ├── service/impl/          # 审核通过自动升级 role + 时薪自动计算
-│       │   │   └── controller/            # InterpreterProfileController + OrderController
-│       │   │
-│       │   └── feedback/                  # 投诉建议域（匿名提交 / 管理员处理）
-│       │       ├── entity/SysFeedback.java
-│       │       ├── dto/                   # CreateFeedbackReq / FeedbackVO / ReplyReq
-│       │       ├── mapper/SysFeedbackMapper
-│       │       ├── service/impl/FeedbackServiceImpl
-│       │       └── controller/FeedbackController
-│       │
-│       └── resources/
-│           ├── application.yml            # 数据源 / Redis / MinIO / JWT 全量配置
-│           ├── db/V1__init_schema.sql     # Flyway 迁移脚本（9 张表 + 初始数据）
-│           ├── i18n/                      # messages.properties（zh/en 双语）
-│           └── mapper/                    # MyBatis XML（按模块分目录，10 个 XML）
-│               ├── sys/ restaurant/ tourism/
-│               ├── ugc/ interpreter/ feedback/
+├── sys/                             # 系统模块（用户/认证/收藏）
+│   ├── controller/
+│   │   ├── AuthController.java      # 登录 / 注册
+│   │   ├── FavoriteController.java  # 收藏 CRUD
+│   │   └── UserController.java      # 个人资料
+│   ├── dto/                         # 请求/响应 DTO
+│   ├── entity/
+│   │   ├── SysUser.java             # 用户实体（BCrypt 密码、role、locale）
+│   │   └── UserFavorite.java        # 收藏实体（软删除）
+│   ├── mapper/                      # MyBatis Mapper
+│   └── service/
+│       ├── SysUserService.java
+│       └── impl/
+│           ├── SysUserServiceImpl.java   # JWT 生成 + BCrypt 加密
+│           └── FavoriteServiceImpl.java  # 收藏软删除恢复机制
 │
-├── QinhuOasisServiceHub-frontend/         # uniapp 前端（Vue3，开发中）
+├── restaurant/                      # 餐厅模块
+│   ├── controller/RestaurantController.java
+│   ├── dto/
+│   ├── entity/Restaurant.java
+│   ├── mapper/RestaurantMapper.java
+│   └── service/
+│       └── impl/RestaurantServiceImpl.java  # Redis ZSet 排行同步
 │
-├── QinhuOasisServiceHub.sql               # 数据库一键初始化脚本（含测试数据）
-├── FRONTEND_WIKI.md                       # API 接口全量文档（22 个端点 + 调用示例）
-├── DEV_LOG.md                             # 开发日志（记录每个 Step 的关键决策）
-└── README.md
+├── tourism/                        # 旅游模块（景点 + 停车）
+│   ├── controller/
+│   │   ├── ParkingController.java  # 停车 API
+│   │   └── ScenicSpotController.java
+│   ├── dto/
+│   ├── entity/
+│   │   ├── BizOrder.java           # 业务订单（雪花算法 orderNo）
+│   │   ├── ParkingSpace.java       # 停车区域（availableCount 为 Redis 镜像）
+│   │   ├── ParkingSpot.java        # 单个车位（状态：空闲/已占用/超时）
+│   │   └── ScenicSpot.java
+│   ├── mapper/
+│   └── service/
+│       └── impl/
+│           ├── ParkingServiceImpl.java  # Redis Lua 原子扣库存 + 分布式锁
+│           └── ScenicSpotServiceImpl.java
+│
+├── interpreter/                    # 译员模块
+│   ├── controller/
+│   │   ├── InterpreterOrderController.java  # 译员订单
+│   │   └── InterpreterProfileController.java
+│   ├── dto/
+│   ├── entity/InterpreterProfile.java
+│   ├── mapper/
+│   └── service/
+│       └── impl/InterpreterServiceImpl.java  # 角色升级 + 24h 前置校验
+│
+├── feedback/                       # 投诉建议模块
+│   ├── controller/FeedbackController.java
+│   ├── dto/
+│   ├── entity/SysFeedback.java     # images 为 JSON 数组字符串
+│   ├── mapper/SysFeedbackMapper.java
+│   └── service/
+│       └── impl/FeedbackServiceImpl.java  # 匿名提交 + 角色感知回复标签
+│
+└── ugc/                           # UGC 模块（游记/评论/点赞/文件上传）
+    ├── controller/
+    │   ├── CommentController.java
+    │   ├── FileController.java     # 文件上传（需登录）
+    │   └── PostController.java
+    ├── dto/
+    ├── entity/
+    │   ├── BizComment.java        # 评论（支持晒图 JSON 数组）
+    │   ├── UgcLike.java          # 点赞（联合主键去重）
+    │   └── UgcPost.java          # 游记/动态
+    ├── mapper/
+    └── service/
+        └── impl/
+            ├── BizCommentServiceImpl.java  # 评分聚合计算
+            └── UgcPostServiceImpl.java    # 游客攻略需审核，动态直接发布
 ```
 
 ---
 
-## 🏛️ 架构设计
+## 4. 关键技术点解析
 
-### 分层职责
+### 4.1 JWT 无状态认证 + ThreadLocal 用户上下文
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Controller 层   │  参数校验（@Valid）+ 登录鉴权        │
-│                  │  统一返回 Result<T> 包装             │
-├─────────────────────────────────────────────────────┤
-│  Service 层      │  业务逻辑 + 事务边界                 │
-│                  │  DTO ↔ Entity 手动映射              │
-│                  │  i18n 字段解析（displayXxx 填充）    │
-├─────────────────────────────────────────────────────┤
-│  Mapper 层       │  MyBatis XML 纯 SQL，无注解污染      │
-│                  │  map-underscore-to-camel 自动映射   │
-├─────────────────────────────────────────────────────┤
-│  Redis 层        │  ZSet 排行 / String 库存 / Lua 原子  │
-│  MySQL 层        │  持久化 + CAS 乐观锁兜底             │
-│  MinIO 层        │  对象存储（4 桶 × 权限隔离）          │
-└─────────────────────────────────────────────────────┘
-```
-
-### DTO → Entity 转化逻辑
-
-本项目不引入 MapStruct，遵循 **Alibaba P3C「显式优于魔法」** 原则，在 Service 层手动完成对象映射：
+JWT 存储用户 ID 和角色，AuthInterceptor 解析后存入 ThreadLocal，全程无 Session：
 
 ```java
-// ✅ 标准写法（以 createPost 为例）
-public PostDetailVO createPost(CreatePostReq req, Long userId) {
-    // 1. Req → Entity（入参 DTO 转持久化实体）
-    UgcPost post = new UgcPost();
-    post.setUserId(userId);
-    post.setTitle(req.getTitle());
-    post.setImages(JSONUtil.toJsonStr(req.getImages())); // List → JSON String
-    post.setStatus(req.getPostType() == PostType.DYNAMIC
-            ? PostStatus.PUBLISHED : PostStatus.REVIEWING);
+// JwtUtil.java — 生成 Token（HS256）
+public String generateToken(Long userId, Integer role) {
+    return Jwts.builder()
+        .subject(userId.toString())
+        .claim("role", role)
+        .issuedAt(new Date())
+        .expiration(new Date(System.currentTimeMillis() + expiration))
+        .signWith(key, Jwts.SIG.HS256)
+        .compact();
+}
 
-    // 2. 持久化
-    ugcPostMapper.insert(post);
+// AuthInterceptor.java — 解析并存入 ThreadLocal
+LoginUser.set(userId, role);  // 请求结束时自动清理
+```
 
-    // 3. Entity / DB 查询结果 → VO（出参 DTO，带 JOIN 字段）
-    PostDetailVO vo = ugcPostMapper.selectDetailById(post.getId());
-    vo.setDisplayTitle(resolveTitle(vo)); // i18n 填充
-    return vo;
+### 4.2 Redis Lua 脚本实现车位原子扣减
+
+避免并发超卖，使用 Redis Lua 脚本在服务端保证原子性：
+
+```java
+// ParkingServiceImpl.java
+private static final String DECREMENT_STOCK_LUA =
+    "if redis.call('exists', KEYS[1]) == 1 " +
+    "and tonumber(redis.call('get', KEYS[1])) >= tonumber(ARGV[1]) " +
+    "then redis.call('decrby', KEYS[1], ARGV[1]); return 1; " +
+    "else return 0; end";
+
+public boolean decrementStock(Long zoneId, int count) {
+    String key = "parking:stock:" + zoneId;
+    Object result = redisTemplate.execute(
+        new DefaultRedisScript<>(DECREMENT_STOCK_LUA, Long.class),
+        Collections.singletonList(key), count
+    );
+    return result != null && (Long) result == 1L;
 }
 ```
 
-**映射规则汇总：**
+### 4.3 统一异常处理 + i18n 消息国际化
 
-| 场景 | 转化策略 |
-|------|---------|
-| 入参 Req → Entity | Service 层逐字段 `set`，包含类型转换（`List<String>` → JSON） |
-| DB 结果 → VO | MyBatis `resultType` 直接映射，`map-underscore-to-camel` 自动处理命名 |
-| 多表 JOIN | XML 中使用 `AS` 别名（`u.nickname AS author_nickname`），自动 camelCase |
-| i18n 字段 | Service 查询后调用 `resolveXxx()` 方法，基于 `LocaleContextHolder` 填充 `displayXxx` |
-| 图片 JSON | DB 存储为 `VARCHAR`，VO 响应时 `@JsonRawValue` 直出 JSON 数组，前端免 parse |
+所有业务异常携带国际化消息 Key，由 GlobalExceptionHandler 统一返回：
+
+```java
+// BizException.java
+@Getter
+public class BizException extends RuntimeException {
+    private final ResultCode resultCode;
+    private final String i18nMessage;  // e.g. "user.username.duplicate"
+}
+
+// GlobalExceptionHandler.java
+@ExceptionHandler(BizException.class)
+public Result<?> handleBiz(BizException e) {
+    String msg = i18nUtil.msg(e.getI18nMessage());  // 根据当前 Locale 解析
+    return Result.fail(e.getResultCode().getCode(), msg);
+}
+
+// ResultCode.java 示例
+USER_USERNAME_DUPLICATE(1003, "user.username.duplicate")
+```
+
+### 4.4 MinIO 预签名 URL + 主机名自动修复
+
+MinIO 签名时使用配置的 endpoint，生成的 URL 含 `localhost:9000`，手机直接访问失败。修复方案：
+
+```java
+// FileStorageService.java
+public String uploadImage(MultipartFile file, String bucket) {
+    String presignedUrl = minioClient.getPresignedObjectUrl(
+        GetPresignedObjectUrlArgs.builder()
+            .method(Method.PUT)
+            .bucket(bucket)
+            .object(objectName)
+            .expiry(7, TimeUnit.DAYS)
+            .build()
+    );
+    // 替换 URL 主机名为当前配置的 endpoint 主机
+    return replacePresignedUrlHost(presignedUrl);
+}
+
+private String replacePresignedUrlHost(String url) {
+    java.net.URL original = new java.net.URL(url);
+    java.net.URL target = new java.net.URL(endpoint);
+    return String.format("%s://%s%s%s",
+        original.getProtocol(),
+        target.getHost() + (target.getPort() != -1 ? ":" + target.getPort() : ""),
+        original.getPath(),
+        original.getQuery() != null ? "?" + original.getQuery() : ""
+    );
+}
+```
+
+### 4.5 启动数据预热（ApplicationRunner）
+
+服务启动时自动初始化 Redis 缓存，确保热点数据第一时间可用：
+
+```java
+// RedisDataInitializer.java
+@Override
+public void run(ApplicationArguments args) {
+    parkingService.initStockToRedis();   // 车位库存镜像
+    restaurantService.initRankToRedis();  // 餐厅排行 ZSet
+}
+```
 
 ---
 
-## 🗄️ 数据库设计
+## 5. 核心配置说明
 
-### 9 张核心表
-
-```
-sys_user              用户表（游客 / 学生译员 / 管理员三角色）
-interpreter_profile   译员档案（审核状态机 + 时薪 + 证书 URL）
-biz_order             统一订单表（多态设计：翻译服务 + 车位预约）
-parking_space         停车区域（available_count = Redis 库存镜像）
-biz_restaurant        餐厅表（sort_score = rating×20 + LOG₁₀(n+1)×10）
-ugc_post              攻略/动态（双语标题 + JSON 图片数组）
-biz_comment           评价/评论（多态 target_type，支持多级）
-ugc_like              点赞记录（UNIQUE KEY 防重复，toggle 语义）
-sys_feedback          投诉建议（支持匿名，管理员回复状态机）
-```
-
-### 关键设计决策
-
-- **biz_order 多态**：`order_type=1` 为翻译订单，`order_type=2` 为车位订单，公共字段复用，专属字段允许 NULL，两套 Mapper（`BizOrderMapper` / `InterpreterOrderMapper`）按业务域分离查询。
-- **软删除**：`deleted TINYINT(1)` 字段，所有查询加 `AND deleted = 0`，保留业务审计链路。
-- **乐观锁**：`UPDATE parking_space SET available_count = available_count - 1 WHERE id = ? AND available_count > 0` 防止数据库层面负库存。
-
----
-
-## 🚀 快速开始
-
-### 环境要求
-
-| 依赖 | 版本要求 | 说明 |
-|------|---------|------|
-| JDK | 17+ | Spring Boot 3.x 要求 |
-| Maven | 3.8+ | 构建工具 |
-| MySQL | 8.0+ | 主数据库 |
-| Redis | 6.x / 7.x | 缓存与队列 |
-| MinIO | RELEASE.2023+ | 对象存储 |
-| Node.js | 18+ | uniapp 前端开发 |
-| HBuilderX | 最新版 | uniapp IDE |
-
----
-
-### 后端启动
-
-#### 第一步：初始化数据库
-
-```bash
-# 连接 MySQL，执行初始化脚本（含表结构 + 测试数据 + admin 账号）
-mysql -u root -p < QinhuOasisServiceHub.sql
-```
-
-#### 第二步：启动 MinIO
-
-```bash
-# Windows（在 MinIO 安装目录执行）
-cd D:\MinIO\bin
-minio.exe server data --console-address ":9001"
-
-# 访问控制台：http://localhost:9001
-# 账号：root  密码：12345678
-# 手动创建 4 个 Bucket：
-#   qosh-ugc-images（设置 public-read 策略）
-#   qosh-interpreter-certs
-#   qosh-public-static（设置 public-read 策略）
-#   qosh-sys-assets
-```
-
-#### 第三步：配置 application.yml
+### 5.1 application.yml 核心配置
 
 ```yaml
-# src/main/resources/application.yml
+server:
+  port: 8080
+  servlet:
+    context-path: /api        # 所有接口统一前缀
+
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/qinhu_oasis?useUnicode=true&characterEncoding=utf8
-    username: root
-    password: 123456          # ← 修改为你的 MySQL 密码
+    hikari:
+      maximum-pool-size: 20  # 连接池大小
+  data:
+    redis:
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+  messages:
+    basename: i18n/messages  # i18n 资源文件路径
+    cache-duration: 3600s
 
+minio:
+  endpoint: http://localhost:9000  # MinIO 服务地址
+  buckets:
+    public-static: qosh-public-static      # 景区地图、官方攻略配图
+    interpreter-certs: qosh-interpreter-certs  # 译员资质证书
+    ugc-images: qosh-ugc-images              # 游客攻略图、评论晒图
+    sys-assets: qosh-sys-assets              # 报表导出、日志备份
+
+jwt:
+  expiration: 604800      # Token 有效期：7 天
+
+third-party:
+  hefeng-weather:
+    base-url: https://mt7dnah6du.re.qweatherapi.com/v7
+  amap:
+    base-url: https://restapi.amap.com/v3
+  baidu-translate:
+    base-url: https://fanyi-api.baidu.com/api/trans/vip/translate
+```
+
+### 5.2 MyBatis 配置
+
+```yaml
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml   # 所有模块的 XML Mapper
+  configuration:
+    map-underscore-to-camel-case: true          # 下划线 → 驼峰
+    default-statement-timeout: 30               # SQL 超时 30s
+  type-aliases-package: com.qinhu.oasis.**.entity  # 别名扫描
+```
+
+---
+
+## 6. Redis 数据设计
+
+| Key Pattern | 数据类型 | 说明 | TTL |
+|-------------|----------|------|-----|
+| `restaurant:rank` | ZSet | 餐厅热度排行（score = sortScore） | 永不过期 |
+| `parking:stock:{zoneId}` | String | 停车区域可用数（MySQL 镜像） | 永不过期 |
+| `parking:lock:{zoneId}` | String | 区域分布式锁（SETNX + 5s TTL） | 5s |
+| `parking:lock:spot:{spotId}` | String | 车位分布式锁 | 5s |
+| `weather:now:{lon},{lat}` | String | 天气数据缓存 | 30min |
+
+---
+
+## 7. API 一览
+
+### 7.1 认证模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | `/api/auth/register` | 用户注册 | 公开 |
+| POST | `/api/auth/login` | 用户登录 | 公开 |
+
+### 7.2 用户模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/users/me` | 当前用户信息 | 登录 |
+| PUT | `/api/users/me` | 更新个人资料 | 登录 |
+
+### 7.3 餐厅模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/restaurants` | 餐厅列表（分页+分类） | 公开 |
+| GET | `/api/restaurants/rank` | 热门排行 | 公开 |
+| GET | `/api/restaurants/{id}` | 餐厅详情 | 公开 |
+| GET | `/api/restaurants/admin/list` | 管理员列表 | 管理员 |
+| POST | `/api/restaurants/admin/create` | 新增餐厅 | 管理员 |
+| PUT | `/api/restaurants/admin/update` | 更新餐厅 | 管理员 |
+| DELETE | `/api/restaurants/admin/{id}` | 删除餐厅 | 管理员 |
+
+### 7.4 景点模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/scenic-spots` | 景点列表 | 公开 |
+| GET | `/api/scenic-spots/{id}` | 景点详情 | 公开 |
+| POST | `/api/scenic-spots/admin/create` | 新增景点 | 管理员 |
+| PUT | `/api/scenic-spots/admin/update` | 更新景点 | 管理员 |
+| DELETE | `/api/scenic-spots/admin/{id}` | 删除景点 | 管理员 |
+| PUT | `/api/scenic-spots/admin/{id}/status` | 切换状态 | 管理员 |
+
+### 7.5 译员模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/interpreters` | 译员列表 | 公开 |
+| GET | `/api/interpreters/{id}` | 译员详情 | 公开 |
+| POST | `/api/interpreter/apply` | 申请译员 | 登录 |
+| POST | `/api/interpreter/cert-upload` | 上传资质证书 | 登录 |
+| GET | `/api/admin/interpreter-profiles` | 管理员所有申请 | 管理员 |
+| POST | `/api/admin/interpreter-profiles/{id}/review` | 审核译员 | 管理员 |
+
+### 7.6 译员订单模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | `/api/interpreter-orders` | 预约译员 | 登录 |
+| GET | `/api/interpreter-orders/mine` | 我的订单 | 登录 |
+| GET | `/api/interpreter-orders/received` | 收到的订单 | 译员 |
+| POST | `/api/interpreter-orders/{id}/accept` | 译员接单 | 译员 |
+| POST | `/api/interpreter-orders/{id}/complete` | 完成服务 | 译员 |
+| POST | `/api/interpreter-orders/{id}/cancel` | 取消订单 | 双方 |
+
+### 7.7 停车模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/parking/spaces` | 停车区域列表 | 公开 |
+| POST | `/api/parking/orders` | 预约停车（选规格） | 登录 |
+| GET | `/api/parking/zones/{zoneId}/spots` | 车位实时状态 | 登录 |
+| POST | `/api/parking/spots/{spotId}/book` | 选位预约（原子锁） | 登录 |
+| POST | `/api/parking/spots/{spotId}/settle` | 结算离场 | 登录 |
+
+### 7.8 UGC 模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/api/posts` | 游记列表 | 公开 |
+| GET | `/api/posts/{id}` | 游记详情（+1浏览量） | 公开 |
+| POST | `/api/posts` | 发布游记 | 登录 |
+| POST | `/api/posts/{id}/like` | 点赞/取消点赞 | 登录 |
+| GET | `/api/comments` | 评论列表 | 公开 |
+| POST | `/api/comments` | 发表评论 | 登录 |
+| POST | `/api/files/upload` | 上传图片 | 登录 |
+
+### 7.9 投诉建议模块
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | `/api/feedback` | 提交反馈（支持匿名） | 公开 |
+| GET | `/api/feedback/me` | 我的反馈 | 登录 |
+| GET | `/api/admin/feedback` | 管理员列表 | 管理员 |
+| GET | `/api/admin/feedback/{id}` | 管理员详情 | 管理员 |
+| POST | `/api/admin/feedback/{id}/reply` | 管理员回复 | 管理员 |
+
+### 7.10 收藏 & 天气
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | `/api/favorites` | 添加收藏 | 登录 |
+| DELETE | `/api/favorites/{type}/{id}` | 取消收藏 | 登录 |
+| GET | `/api/favorites` | 所有收藏 | 登录 |
+| GET | `/api/weather/now` | 实时天气（和风API） | 公开 |
+
+---
+
+## 8. 统一响应格式
+
+```json
+// 成功
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": { ... }
+}
+
+// 失败
+{
+  "code": 1003,
+  "message": "用户名已被占用",
+  "data": null
+}
+
+// 分页
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "total": 42,
+    "list": [ ... ]
+  }
+}
+```
+
+---
+
+## 9. 环境准备与快速启动
+
+### 9.1 环境要求
+
+| 依赖 | 版本要求 |
+|------|----------|
+| JDK | 17+ |
+| Maven | 3.9+ |
+| MySQL | 8.0+ |
+| Redis | 6.0+ |
+| MinIO | 最新版（默认 `localhost:9000`） |
+
+### 9.2 配置步骤
+
+**Step 1：创建数据库**
+
+```sql
+CREATE DATABASE qinhu_oasis DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+**Step 2：配置 application-local.yml（或覆盖 application.yml）**
+
+```yaml
+# src/main/resources/application-local.yml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/qinhu_oasis?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: your_password
   data:
     redis:
       host: localhost
       port: 6379
+      password: your_redis_password
 
 minio:
   endpoint: http://localhost:9000
-  access-key: root
-  secret-key: "12345678"
+  access-key: minioadmin
+  secret-key: minioadmin
 ```
 
-> **局域网联调配置**：将上述 `localhost` 改为局域网 IP，例如 `10.220.119.171`；前端 `FRONTEND_WIKI.md` 中 BaseURL 也指向同一地址。
+**Step 3：启动 MinIO 并创建桶**
 
-#### 第四步：编译启动
+MinIO 启动后访问 `http://localhost:9001`，使用 `minioadmin/minioadmin` 登录，手动创建以下 4 个桶（或由 `MinioBucketInitializer` 自动创建）：
+
+- `qosh-public-static`（public-read）
+- `qosh-interpreter-certs`（public-read）
+- `qosh-ugc-images`（public-read）
+- `qosh-sys-assets`（private）
+
+### 9.3 编译与启动
 
 ```bash
 cd QinhuOasisServiceHub-backend
 
-# 方式一：Maven 直接运行
-mvn spring-boot:run
-
-# 方式二：打包后运行（推荐局域网部署）
+# 编译（跳过测试）
 mvn clean package -DskipTests
-java -jar target/qinhu-oasis-backend-1.0.0-SNAPSHOT.jar
 
-# 验证启动成功（应返回 200 + 餐厅列表）
-curl http://localhost:8080/api/restaurants
+# 运行
+java -jar target/qinhu-oasis-backend-1.0.0-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
-**初始管理员账号（已内置于 SQL）：**
+> 服务启动时自动执行以下初始化：
+> 1. `AdminUserInitializer` — 创建默认管理员 admin/Admin@123456
+> 2. `MinioBucketInitializer` — 自动创建 4 个 MinIO Bucket
+> 3. `RedisDataInitializer` — 预热车位库存和餐厅排行数据
 
-```
-用户名：admin
-密码：Admin@123456
-角色：管理员（role=2）
-```
+### 9.4 验证服务
 
----
+```bash
+# 健康检查
+curl http://localhost:8080/api/restaurants/rank
 
-### 前端启动（uniapp）
+# 登录获取 Token
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Admin@123456"}'
 
-#### 第一步：配置局域网 IP
-
-打开 `QinhuOasisServiceHub-frontend/utils/request.js`，修改：
-
-```javascript
-// utils/request.js
-const BASE_URL = 'http://10.220.119.171:8080/api'  // ← 替换为后端所在机器的局域网 IP
-```
-
-> 手机真机调试时，确保手机与电脑处于**同一 WiFi 网络**，且后端防火墙已放行 8080 端口。
-
-#### 第二步：HBuilderX 运行
-
-```
-HBuilderX → 运行 → 运行到浏览器 / 运行到手机（微信开发者工具 / Android 真机）
+# 带 Token 请求
+curl http://localhost:8080/api/users/me \
+  -H "Authorization: Bearer {your_token}"
 ```
 
 ---
 
-## 🔐 安全设计
+## 10. 默认账号
 
-```
-JWT（jjwt 0.12.5）
-├── 算法：HS256，Secret ≥ 256 bits
-├── Payload：userId + role（无敏感字段）
-├── 有效期：7 天（604800 秒，可配置）
-└── 刷新：过期后重新登录，无 Refresh Token（简化方案）
+| 角色 | 用户名 | 密码 |
+|------|--------|------|
+| 管理员 | admin | Admin@123456 |
 
-AuthInterceptor（HandlerInterceptor）
-├── 解析 Authorization: Bearer {token}
-├── 写入 LoginUser ThreadLocal（userId + role）
-├── Token 缺失 → 匿名访问（由业务层控制权限）
-├── Token 过期 → 抛 TOKEN_EXPIRED（1006）
-└── afterCompletion → LoginUser.clear()（防内存泄漏）
-
-密码存储：Hutool BCrypt（gensalt rounds=12）
-```
+> 管理员账号在首次启动时由 `AdminUserInitializer` 自动创建，密码加密存储。
 
 ---
 
-## 📡 接口总览
+## 11. 项目亮点速览
 
-完整 API 文档请参阅 👉 **[FRONTEND_WIKI.md](./FRONTEND_WIKI.md)**
-
-| 模块 | 方法 | 路径 | 鉴权 |
-|------|------|------|------|
-| 认证 | POST | `/api/auth/register` `/api/auth/login` | 无 |
-| 用户 | GET | `/api/users/me` | 需登录 |
-| 餐厅 | GET | `/api/restaurants` `/api/restaurants/rank` `/api/restaurants/{id}` | 无 |
-| 车位 | GET/POST | `/api/parking/spaces` `/api/parking/orders` | 预约需登录 |
-| 攻略 | GET/POST | `/api/posts` `/api/posts/{id}` `/api/posts/{id}/like` | 发布/点赞需登录 |
-| 评论 | GET/POST | `/api/comments` | 发评论需登录 |
-| 文件 | POST | `/api/files/upload` | 需登录 |
-| 译员 | GET/POST | `/api/interpreters/**` `/api/interpreter/**` | 申请需登录 |
-| 译员订单 | POST/GET | `/api/interpreter-orders/**` | 需登录 |
-| 投诉建议 | POST | `/api/feedback` | 无（匿名支持）|
-| 管理员 | GET/POST | `/api/admin/**` | 需 role=2 |
+- ✅ **Spring Boot 3 + JDK 17** —— 最新 LTS 技术栈
+- ✅ **JWT 无状态认证** —— ThreadLocal 用户上下文，全链路无 Session
+- ✅ **Redis Lua 原子操作** —— 车位超卖问题从根源杜绝
+- ✅ **MinIO 预签名 URL** —— 临时访问令牌，存储地址永不暴露
+- ✅ **请求级 i18n** —— Accept-Language 自动解析，返回对应语言错误信息
+- ✅ **MyBatis 软删除** —— 所有数据表支持软删除，数据安全可恢复
+- ✅ **统一异常处理** —— 100+ 业务错误码，结构化返回，前端零处理
+- ✅ **启动数据预热** —— ApplicationRunner 保证热点数据在首次请求时已就绪
+- ✅ **多 Bucket 隔离策略** —— 公开图片 / 证书 / UGC / 私有资产分类管理
+- ✅ **雪花算法订单号** —— 不依赖数据库自增，高并发下唯一性有保障
 
 ---
 
-## 📊 项目统计
-
-| 指标 | 数值 |
-|------|------|
-| Java 源文件 | 94 个 |
-| MyBatis XML | 10 个 |
-| Java 代码行数 | 5,183 行 |
-| 业务域数量 | 7 个（common + 6 业务模块）|
-| REST API 端点 | 22 个 |
-| 数据库表 | 9 张 |
-| i18n 语言 | 2 种（zh-CN / en-US）|
-| MinIO 存储桶 | 4 个 |
-
----
-
-## 🛠️ 技术选型说明
-
-| 选型 | 理由 |
-|------|------|
-| **Spring Boot 3.2.5** | Jakarta EE 10，原生支持 Java 17 特性（Records、Sealed Class 友好），长期维护 |
-| **MyBatis XML 模式** | 复杂 JOIN 查询 SQL 可读性高，易于 DBA 审查与调优；拒绝 JPA 魔法查询导致的 N+1 |
-| **Hutool BCrypt** | 无需引入 Spring Security，轻量实现密码安全存储；`gensalt()` 随机盐防彩虹表攻击 |
-| **jjwt 0.12.5** | 业界标准 JWT 库，API 简洁；无状态 Token 天然适合移动端跨域认证 |
-| **Redis ZSet** | 有序集合原语与排行榜语义完美契合，读写 O(log N)，支持 Top-K 实时更新 |
-| **Redis Lua** | 脚本在单线程执行，是 Redis 层唯一保证原子性的正确方式，无需分布式锁开销 |
-| **MinIO** | S3 兼容协议，私有部署零成本，桶级权限隔离满足证书隐私要求 |
-| **uniapp + Vue3** | 一套代码同时支持小程序 + H5 + App，符合景区多端覆盖需求 |
-
----
-
-## 📄 License
-
-```
-MIT License
-
-Copyright (c) 2026 AiKiFan
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
----
-
-<div align="center">
-
-**由 [Claude Sonnet 4.6](https://claude.ai) 辅助构建 · 严格遵循阿里巴巴 Java 开发手册（嵩山版）**
-
-</div>
+*Made with ❤️ by AiKiFan · 沁湖驿站智慧旅游云服务平台 · 2026*
