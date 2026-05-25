@@ -117,6 +117,16 @@ public interface InterpreterService {
     PageResult<InterpreterVO> adminListProfiles(Integer status, int page, int size);
 
     /**
+     * 管理员编辑译员档案（可修改任意字段）
+     *
+     * @param profileId 档案 ID
+     * @param req      更新参数
+     * @param adminId  操作管理员 ID
+     * @return 更新后的译员档案 VO
+     */
+    InterpreterVO adminUpdateProfile(Long profileId, ApplyInterpreterReq req, Long adminId);
+
+    /**
      * 管理员审核译员申请
      *
      * @param profileId    档案 ID

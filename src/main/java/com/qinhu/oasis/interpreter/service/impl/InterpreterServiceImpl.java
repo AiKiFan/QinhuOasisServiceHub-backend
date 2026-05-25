@@ -263,6 +263,48 @@ public class InterpreterServiceImpl implements InterpreterService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public InterpreterVO adminUpdateProfile(Long profileId, ApplyInterpreterReq req, Long adminId) {
+        InterpreterProfile profile = profileMapper.selectById(profileId);
+        if (profile == null) {
+            throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+        }
+        if (req.getRealName() != null && !req.getRealName().isBlank()) {
+            profile.setRealName(req.getRealName());
+        }
+        if (req.getStudentId() != null && !req.getStudentId().isBlank()) {
+            profile.setStudentId(req.getStudentId());
+        }
+        if (req.getSchool() != null) {
+            profile.setSchool(req.getSchool());
+        }
+        if (req.getEnglishLevel() != null) {
+            profile.setEnglishLevel(req.getEnglishLevel());
+        }
+        if (req.getCertUrl() != null) {
+            profile.setCertUrl(req.getCertUrl());
+        }
+        if (req.getCertNo() != null) {
+            profile.setCertNo(req.getCertNo());
+        }
+        if (req.getIntroduction() != null) {
+            profile.setIntroduction(req.getIntroduction());
+        }
+        if (req.getIntroductionEn() != null) {
+            profile.setIntroductionEn(req.getIntroductionEn());
+        }
+        if (req.getServiceTypes() != null) {
+            profile.setServiceTypes(req.getServiceTypes());
+        }
+        if (req.getHourlyRate() != null) {
+            profile.setHourlyRate(req.getHourlyRate());
+        }
+        profileMapper.updateById(profile);
+        log.info("Admin updated interpreter profile: profileId={}, adminId={}", profileId, adminId);
+        return toVO(profile);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void adminReviewProfile(Long profileId, boolean approve, String rejectReason, Long adminId) {
         InterpreterProfile profile = profileMapper.selectById(profileId);
         if (profile == null) {

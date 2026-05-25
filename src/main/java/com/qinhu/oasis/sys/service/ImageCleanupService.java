@@ -1,6 +1,5 @@
 package com.qinhu.oasis.sys.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qinhu.oasis.interpreter.entity.InterpreterProfile;
 import com.qinhu.oasis.interpreter.mapper.InterpreterProfileMapper;
@@ -12,19 +11,17 @@ import com.qinhu.oasis.tourism.entity.ScenicSpot;
 import com.qinhu.oasis.tourism.mapper.ScenicSpotMapper;
 import com.qinhu.oasis.ugc.entity.UgcPost;
 import com.qinhu.oasis.ugc.mapper.UgcPostMapper;
-import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
-import io.minio.http.Method;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * MinIO 图片可用性检测与清理服务
@@ -113,7 +110,6 @@ public class ImageCleanupService {
     // ───────────── 用户头像清理 ─────────────
 
     private void cleanupUsers(CleanupResult result) {
-        // 查询所有有头像的用户（avatar 非空）
         List<SysUser> allUsers = sysUserMapper.selectAllForCleanup();
         for (SysUser user : allUsers) {
             if (user.getAvatar() == null || user.getAvatar().isBlank()) continue;
@@ -152,7 +148,6 @@ public class ImageCleanupService {
         for (Restaurant r : restaurants) {
             boolean changed = false;
 
-            // 检查封面
             if (r.getCoverImg() != null && !r.getCoverImg().isBlank()) {
                 result.restaurantsChecked++;
                 if (!objectExists(r.getCoverImg())) {
@@ -164,12 +159,11 @@ public class ImageCleanupService {
                 }
             }
 
-            // 检查图片列表（JSON 数组）
             if (r.getImages() != null && !r.getImages().isBlank()) {
-                List<String> validUrls = new ArrayList<>();
-                boolean imagesChanged = false;
                 try {
-                    List<String> urls = objectMapper.readValue(r.getImages(), new TypeReference<List<String>>() {});
+                    List<String> urls = parseImageUrls(r.getImages());
+                    List<String> validUrls = new ArrayList<>();
+                    boolean imagesChanged = false;
                     for (String url : urls) {
                         if (!objectExists(url)) {
                             log.warn("[ImageCleanup] 餐厅 {} 图片不存在: {}", r.getId(), url);
@@ -213,10 +207,10 @@ public class ImageCleanupService {
             }
 
             if (s.getImages() != null && !s.getImages().isBlank()) {
-                List<String> validUrls = new ArrayList<>();
-                boolean imagesChanged = false;
                 try {
-                    List<String> urls = objectMapper.readValue(s.getImages(), new TypeReference<List<String>>() {});
+                    List<String> urls = parseImageUrls(s.getImages());
+                    List<String> validUrls = new ArrayList<>();
+                    boolean imagesChanged = false;
                     for (String url : urls) {
                         if (!objectExists(url)) {
                             log.warn("[ImageCleanup] 景点 {} 图片不存在: {}", s.getId(), url);
@@ -260,10 +254,10 @@ public class ImageCleanupService {
             }
 
             if (p.getImages() != null && !p.getImages().isBlank()) {
-                List<String> validUrls = new ArrayList<>();
-                boolean imagesChanged = false;
                 try {
-                    List<String> urls = objectMapper.readValue(p.getImages(), new TypeReference<List<String>>() {});
+                    List<String> urls = parseImageUrls(p.getImages());
+                    List<String> validUrls = new ArrayList<>();
+                    boolean imagesChanged = false;
                     for (String url : urls) {
                         if (!objectExists(url)) {
                             log.warn("[ImageCleanup] UGC {} 图片不存在: {}", p.getId(), url);
@@ -290,16 +284,11 @@ public class ImageCleanupService {
 
     // ───────────── MinIO 对象检测核心方法 ─────────────
 
-    /**
-     * 检查 MinIO 中指定 URL 的对象是否存在
-     */
     private boolean objectExists(String url) {
         if (url == null || url.isBlank()) return true;
         try {
-            // 解析 URL，提取 bucket 和 objectName
             String objectKey = extractObjectKey(url);
             if (objectKey == null) {
-                // 无法解析，说明不是 MinIO URL，跳过清理
                 return true;
             }
             String bucket = extractBucket(url);
@@ -311,30 +300,25 @@ public class ImageCleanupService {
             );
             return true;
         } catch (io.minio.errors.ErrorResponseException e) {
-            if ("NoSuchKey".equals(e.errorResponse().code()) ||
-                "NoSuchBucket".equals(e.errorResponse().code())) {
+            String code = e.errorResponse().code();
+            if ("NoSuchKey".equals(code) || "NoSuchBucket".equals(code)) {
                 return false;
             }
-            // 其他错误（如网络问题），保守处理：视为存在，不清空
             log.warn("[ImageCleanup] MinIO statObject 出错（视为存在）: {} - {}", url, e.getMessage());
             return true;
         } catch (Exception e) {
-            // 网络超时等，保守处理
             log.warn("[ImageCleanup] MinIO 连接异常（视为存在）: {} - {}", url, e.getMessage());
             return true;
         }
     }
 
-    /**
-     * 从 MinIO 预签名 URL 中提取对象路径（object key）
-     * 例如：http://localhost:9000/bucket/20260516/xxx.jpg?X-Amz-... → bucket/20260516/xxx.jpg
-     */
     private String extractObjectKey(String urlStr) {
         try {
             URL url = new URL(urlStr);
-            String path = url.getPath(); // /bucket/20260516/xxx.jpg
-            if (path == null || path.isBlank() || path.equals("/")) return null;
-            // 去掉前导 /
+            String path = url.getPath();
+            if (path == null || path.isBlank() || path.equals("/")) {
+                return null;
+            }
             return path.substring(1);
         } catch (Exception e) {
             log.warn("[ImageCleanup] 无法解析 URL: {}", urlStr);
@@ -342,9 +326,6 @@ public class ImageCleanupService {
         }
     }
 
-    /**
-     * 从 MinIO URL 中提取 bucket 名称
-     */
     private String extractBucket(String urlStr) {
         String objectKey = extractObjectKey(urlStr);
         if (objectKey == null) return null;
@@ -353,9 +334,216 @@ public class ImageCleanupService {
         return objectKey.substring(0, slashIdx);
     }
 
-    /** 截断 URL 方便日志显示 */
     private String truncateUrl(String url) {
         if (url == null) return "null";
         return url.length() > 80 ? url.substring(0, 80) + "..." : url;
+    }
+
+    /** 刷新结果统计 */
+    public static class RefreshResult {
+        public int usersRefreshed = 0;
+        public int interpretersRefreshed = 0;
+        public int restaurantsRefreshed = 0;
+        public int scenicSpotsRefreshed = 0;
+        public int ugcPostsRefreshed = 0;
+
+        @Override
+        public String toString() {
+            return String.format(
+                "刷新完成：\n" +
+                "用户头像：刷新 %d 个\n" +
+                "译员证书：刷新 %d 个\n" +
+                "餐厅图片：刷新 %d 个\n" +
+                "景点图片：刷新 %d 个\n" +
+                "UGC 图片：刷新 %d 个",
+                usersRefreshed, interpretersRefreshed, restaurantsRefreshed, scenicSpotsRefreshed, ugcPostsRefreshed
+            );
+        }
+    }
+
+    /**
+     * 刷新所有图片 URL：
+     * 1. 去除预签名参数（?X-Amz-Signature=...）
+     * 2. 将错误 IP（10.220.119.171、192.168.x.x 等）替换为 localhost
+     */
+    public RefreshResult refreshAllUrls() {
+        RefreshResult result = new RefreshResult();
+        refreshUsers(result);
+        refreshInterpreters(result);
+        refreshRestaurants(result);
+        refreshScenicSpots(result);
+        refreshUgcPosts(result);
+        return result;
+    }
+
+    private void refreshUsers(RefreshResult result) {
+        List<SysUser> allUsers = sysUserMapper.selectAllForCleanup();
+        for (SysUser user : allUsers) {
+            if (user.getAvatar() == null || user.getAvatar().isBlank()) continue;
+            String fixed = fixImageUrl(user.getAvatar());
+            if (!user.getAvatar().equals(fixed)) {
+                log.info("[ImageRefresh] 用户 {} 头像 URL 刷新: {} → {}", user.getId(), truncateUrl(user.getAvatar()), truncateUrl(fixed));
+                user.setAvatar(fixed);
+                sysUserMapper.updateById(user);
+                result.usersRefreshed++;
+            }
+        }
+    }
+
+    private void refreshInterpreters(RefreshResult result) {
+        List<InterpreterProfile> profiles = interpreterProfileMapper.selectAllForCleanup();
+        for (InterpreterProfile profile : profiles) {
+            if (profile.getCertUrl() == null || profile.getCertUrl().isBlank()) continue;
+
+            // 译员证书可能存了多张（逗号分隔），逐个处理
+            String[] certUrls = profile.getCertUrl().split(",");
+            StringBuilder sb = new StringBuilder();
+            boolean anyChanged = false;
+            for (int i = 0; i < certUrls.length; i++) {
+                String cert = certUrls[i].trim();
+                if (cert.isEmpty()) continue;
+                String fixed = fixImageUrl(cert);
+                if (!cert.equals(fixed)) anyChanged = true;
+                if (i > 0) sb.append(",");
+                sb.append(fixed);
+            }
+
+            if (anyChanged) {
+                String fixed = sb.toString();
+                log.info("[ImageRefresh] 译员 {} 证书 URL 刷新", profile.getId());
+                profile.setCertUrl(fixed);
+                interpreterProfileMapper.updateById(profile);
+                result.interpretersRefreshed++;
+            }
+        }
+    }
+
+    private void refreshRestaurants(RefreshResult result) {
+        List<Restaurant> restaurants = restaurantMapper.selectAllForCleanup();
+        for (Restaurant r : restaurants) {
+            boolean changed = false;
+
+            if (r.getCoverImg() != null && !r.getCoverImg().isBlank()) {
+                String fixed = fixImageUrl(r.getCoverImg());
+                if (!r.getCoverImg().equals(fixed)) {
+                    log.info("[ImageRefresh] 餐厅 {} 封面 URL 刷新: {} → {}", r.getId(), truncateUrl(r.getCoverImg()), truncateUrl(fixed));
+                    r.setCoverImg(fixed);
+                    changed = true;
+                    result.restaurantsRefreshed++;
+                }
+            }
+
+            if (r.getImages() != null && !r.getImages().isBlank()) {
+                try {
+                    List<String> urls = parseImageUrls(r.getImages());
+                    List<String> fixedUrls = urls.stream().map(this::fixImageUrl).collect(Collectors.toList());
+                    r.setImages(objectMapper.writeValueAsString(fixedUrls));
+                    changed = true;
+                } catch (Exception e) {
+                    log.error("[ImageRefresh] 餐厅 {} images JSON 解析失败: {}", r.getId(), e.getMessage());
+                }
+            }
+
+            if (changed) {
+                restaurantMapper.updateById(r);
+            }
+        }
+    }
+
+    private void refreshScenicSpots(RefreshResult result) {
+        List<ScenicSpot> spots = scenicSpotMapper.selectAllForCleanup();
+        for (ScenicSpot s : spots) {
+            boolean changed = false;
+
+            if (s.getCoverImg() != null && !s.getCoverImg().isBlank()) {
+                String fixed = fixImageUrl(s.getCoverImg());
+                if (!s.getCoverImg().equals(fixed)) {
+                    log.info("[ImageRefresh] 景点 {} 封面 URL 刷新: {} → {}", s.getId(), truncateUrl(s.getCoverImg()), truncateUrl(fixed));
+                    s.setCoverImg(fixed);
+                    changed = true;
+                    result.scenicSpotsRefreshed++;
+                }
+            }
+
+            if (s.getImages() != null && !s.getImages().isBlank()) {
+                try {
+                    List<String> urls = parseImageUrls(s.getImages());
+                    List<String> fixedUrls = urls.stream().map(this::fixImageUrl).collect(Collectors.toList());
+                    s.setImages(objectMapper.writeValueAsString(fixedUrls));
+                    changed = true;
+                } catch (Exception e) {
+                    log.error("[ImageRefresh] 景点 {} images JSON 解析失败: {}", s.getId(), e.getMessage());
+                }
+            }
+
+            if (changed) {
+                scenicSpotMapper.updateById(s);
+            }
+        }
+    }
+
+    private void refreshUgcPosts(RefreshResult result) {
+        List<UgcPost> posts = ugcPostMapper.selectAllForCleanup();
+        for (UgcPost p : posts) {
+            boolean changed = false;
+
+            if (p.getCoverImg() != null && !p.getCoverImg().isBlank()) {
+                String fixed = fixImageUrl(p.getCoverImg());
+                if (!p.getCoverImg().equals(fixed)) {
+                    log.info("[ImageRefresh] UGC {} 封面 URL 刷新: {} → {}", p.getId(), truncateUrl(p.getCoverImg()), truncateUrl(fixed));
+                    p.setCoverImg(fixed);
+                    changed = true;
+                    result.ugcPostsRefreshed++;
+                }
+            }
+
+            if (p.getImages() != null && !p.getImages().isBlank()) {
+                try {
+                    List<String> urls = parseImageUrls(p.getImages());
+                    List<String> fixedUrls = urls.stream().map(this::fixImageUrl).collect(Collectors.toList());
+                    p.setImages(objectMapper.writeValueAsString(fixedUrls));
+                    changed = true;
+                } catch (Exception e) {
+                    log.error("[ImageRefresh] UGC {} images JSON 解析失败: {}", p.getId(), e.getMessage());
+                }
+            }
+
+            if (changed) {
+                ugcPostMapper.updateById(p);
+            }
+        }
+    }
+
+    /**
+     * 修复图片 URL：
+     * 1. 去除预签名参数（?X-Amz-Signature=...&X-Amz-Expires=...）
+     * 2. 将非 localhost 的 MinIO IP 替换为 localhost
+     */
+    private String fixImageUrl(String url) {
+        if (url == null || url.isBlank()) return url;
+
+        // 只处理 MinIO URL（含 :9000 端口）
+        if (!url.contains(":9000")) return url;
+
+        // 去除预签名参数
+        int queryIdx = url.indexOf('?');
+        String baseUrl = queryIdx > 0 ? url.substring(0, queryIdx) : url;
+
+        // 替换错误 IP 为 localhost
+        try {
+            java.net.URL u = new java.net.URL(baseUrl);
+            String host = u.getHost();
+            if (!"localhost".equals(host) && !"127.0.0.1".equals(host)) {
+                return "http://localhost:9000" + u.getPath();
+            }
+        } catch (Exception e) {
+            // 不是标准 URL 格式，原样返回
+        }
+
+        return baseUrl;
+    }
+
+    private List<String> parseImageUrls(String json) throws Exception {
+        return objectMapper.readValue(json, objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
     }
 }

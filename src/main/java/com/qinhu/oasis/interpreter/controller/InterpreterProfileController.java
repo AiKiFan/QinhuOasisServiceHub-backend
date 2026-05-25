@@ -140,6 +140,21 @@ public class InterpreterProfileController {
     }
 
     /**
+     * 管理员编辑译员档案（需管理员角色）
+     *
+     * @param id  档案 ID
+     * @param req 更新参数
+     * @return 更新后的译员档案 VO
+     */
+    @PostMapping("/admin/interpreter-profiles/{id}")
+    public Result<InterpreterVO> adminUpdateProfile(
+            @PathVariable Long id,
+            @RequestBody ApplyInterpreterReq req) {
+        Long adminId = requireAdmin();
+        return Result.ok(interpreterService.adminUpdateProfile(id, req, adminId));
+    }
+
+    /**
      * 管理员审核译员申请（需管理员角色）
      *
      * @param id           档案 ID

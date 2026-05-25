@@ -97,7 +97,8 @@ public class SysUserServiceImpl implements SysUserService {
         // 如果用户是译员，查询其档案 ID（用于前端判断译员身份）
         if (user.getRole() != null && user.getRole() == 1) {
             InterpreterProfile profile = interpreterProfileMapper.selectByUserId(user.getId());
-            if (profile != null && profile.getStatus() == 1) { // 已通过审核
+            if (profile != null && profile.getStatus() == 1) {
+                // 已通过审核
                 vo.setProfileId(profile.getId());
             }
         }

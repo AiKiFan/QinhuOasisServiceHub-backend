@@ -39,6 +39,19 @@ public class SysController {
         return Result.ok(result);
     }
 
+    /**
+     * 刷新所有图片 URL 为公共读的干净 URL
+     * <p>将旧的预签名 URL（含 X-Amz-Signature）和错误 IP（如 10.220.119.171）
+     * 统一替换为 http://localhost:9000/bucket/path.jpg</p>
+     * <p>需管理员权限。</p>
+     */
+    @PostMapping("/admin/refresh-images")
+    public Result<ImageCleanupService.RefreshResult> refreshImages() {
+        requireAdmin();
+        ImageCleanupService.RefreshResult result = imageCleanupService.refreshAllUrls();
+        return Result.ok(result);
+    }
+
     private void requireAdmin() {
         Long userId = LoginUser.getUserId();
         if (userId == null) {
