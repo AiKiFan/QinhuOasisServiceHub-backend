@@ -9,6 +9,7 @@ import com.qinhu.oasis.common.result.ResultCode;
 import com.qinhu.oasis.interpreter.entity.InterpreterProfile;
 import com.qinhu.oasis.interpreter.mapper.InterpreterProfileMapper;
 import com.qinhu.oasis.restaurant.mapper.RestaurantMapper;
+import com.qinhu.oasis.restaurant.service.RestaurantService;
 import com.qinhu.oasis.ugc.dto.CommentVO;
 import com.qinhu.oasis.ugc.dto.CreateCommentReq;
 import com.qinhu.oasis.ugc.entity.BizComment;
@@ -41,6 +42,7 @@ public class BizCommentServiceImpl implements BizCommentService {
     private final UgcPostMapper ugcPostMapper;
     private final InterpreterProfileMapper interpreterProfileMapper;
     private final RestaurantMapper restaurantMapper;
+    private final RestaurantService restaurantService;
     private final I18nUtil i18nUtil;
 
     @Override
@@ -87,6 +89,9 @@ public class BizCommentServiceImpl implements BizCommentService {
 
         // 同步更新目标评分（餐厅/译员）
         syncRating(req.getTargetId(), req.getTargetType(), isNew);
+        if (req.getTargetType() == CommentTargetType.RESTAURANT) {
+            restaurantService.refreshRankScore(req.getTargetId());
+        }
 
         // 返回评论详情
         List<CommentVO> results = bizCommentMapper.selectByTarget(
@@ -104,6 +109,11 @@ public class BizCommentServiceImpl implements BizCommentService {
         return vo;
     }
 
+    /** 最小可信评论数 */
+    private static final int BAYESIAN_C = 5;
+    /** 全局默认平均分 */
+    private static final double BAYESIAN_M = 3.5;
+
     /**
      * 重新统计并更新目标评分
      *
@@ -119,12 +129,28 @@ public class BizCommentServiceImpl implements BizCommentService {
 
         if (targetType == CommentTargetType.RESTAURANT) {
             restaurantMapper.updateRating(targetId, rating);
+            // 先查当前 review_count，再决定是否 +1
+            Integer reviewCount = restaurantMapper.selectReviewCount(targetId);
+            if (reviewCount == null) reviewCount = 0;
             if (isNewReview) {
                 restaurantMapper.incrementReviewCount(targetId);
+                reviewCount++; // Java 里同步 +1，确保 sortScore 用最新值
             }
+            // 贝叶斯平均计算热度分数并更新
+            double bayesian = bayesianRating(avg, reviewCount);
+            double sortScore = bayesian * 20 + Math.log10(reviewCount + 1) * 10;
+            restaurantMapper.updateSortScore(targetId, sortScore);
         } else if (targetType == CommentTargetType.INTERPRETER) {
             interpreterProfileMapper.updateRating(targetId, rating);
         }
+    }
+
+    /**
+     * 贝叶斯平均评分：评论少时向全局平均分靠拢，评论多时使用真实评分
+     * <p>公式：bayesian = (rating × n + C × M) / (n + C)</p>
+     */
+    private double bayesianRating(double rating, int reviewCount) {
+        return (rating * reviewCount + BAYESIAN_C * BAYESIAN_M) / (reviewCount + BAYESIAN_C);
     }
 
     @Override

@@ -49,6 +49,14 @@ public interface RestaurantService {
     void initRankToRedis();
 
     /**
+     * 刷新单个餐厅的热度分数到 Redis ZSet
+     * <p>评论后调用，确保排行榜分数实时同步</p>
+     *
+     * @param id 餐厅ID
+     */
+    void refreshRankScore(Long id);
+
+    /**
      * 根据ID列表获取餐厅列表（用于收藏功能）
      *
      * @param ids 餐厅ID列表

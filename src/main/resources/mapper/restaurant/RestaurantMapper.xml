@@ -114,6 +114,16 @@
         UPDATE biz_restaurant SET review_count = review_count + 1 WHERE id = #{id}
     </update>
 
+    <!-- 更新餐厅热度分数（贝叶斯平均计算后调用） -->
+    <update id="updateSortScore">
+        UPDATE biz_restaurant SET sort_score = #{sortScore} WHERE id = #{id}
+    </update>
+
+    <!-- 查询餐厅评价总数（用于贝叶斯平均计算） -->
+    <select id="selectReviewCount" resultType="integer">
+        SELECT review_count FROM biz_restaurant WHERE id = #{id} AND deleted = 0
+    </select>
+
     <!-- 图片清理：查询所有餐厅（含已删除） -->
     <select id="selectAllForCleanup" resultType="com.qinhu.oasis.restaurant.entity.Restaurant">
         SELECT * FROM biz_restaurant

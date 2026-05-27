@@ -110,6 +110,15 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    public void refreshRankScore(Long id) {
+        Restaurant r = restaurantMapper.selectById(id);
+        if (r != null) {
+            stringRedisTemplate.opsForZSet().add(RANK_KEY, String.valueOf(id), r.getSortScore());
+            log.info("Refreshed rank score for restaurant {}: {}", id, r.getSortScore());
+        }
+    }
+
+    @Override
     public List<RestaurantListVO> getRestaurantsByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();

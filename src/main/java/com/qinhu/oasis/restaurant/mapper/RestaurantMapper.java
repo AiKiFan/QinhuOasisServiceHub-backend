@@ -120,6 +120,22 @@ public interface RestaurantMapper {
      */
     void incrementReviewCount(@Param("id") Long id);
 
+    /**
+     * 更新餐厅热度分数（贝叶斯平均计算后调用）
+     *
+     * @param id        餐厅ID
+     * @param sortScore 热度综合分
+     */
+    void updateSortScore(@Param("id") Long id, @Param("sortScore") Double sortScore);
+
+    /**
+     * 查询餐厅评价总数（用于贝叶斯平均计算）
+     *
+     * @param id 餐厅ID
+     * @return 评价总数
+     */
+    Integer selectReviewCount(@Param("id") Long id);
+
     /** 查询所有餐厅（用于图片清理，含已删除） */
     List<Restaurant> selectAllForCleanup();
 }
