@@ -5,11 +5,9 @@ import com.qinhu.oasis.common.i18n.I18nUtil;
 import com.qinhu.oasis.common.result.Result;
 import com.qinhu.oasis.common.result.ResultCode;
 import com.qinhu.oasis.common.security.LoginUser;
-import com.qinhu.oasis.tourism.dto.ParkingOrderReq;
-import com.qinhu.oasis.tourism.dto.ParkingOrderVO;
-import com.qinhu.oasis.tourism.dto.ParkingSpaceVO;
 import com.qinhu.oasis.tourism.dto.BookSpotReq;
 import com.qinhu.oasis.tourism.dto.ParkingSpotVO;
+import com.qinhu.oasis.tourism.dto.ZoneVO;
 import com.qinhu.oasis.tourism.service.ParkingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,47 +36,12 @@ public class ParkingController {
     private final I18nUtil i18nUtil;
 
     /**
-     * 查看所有停车区域及实时库存（无需登录）
-     *
-     * @return 停车区域列表
+     * 查询所有停车区域（给 detail 页渲染区域 Tab）
      */
     @GetMapping("/spaces")
-    public Result<List<ParkingSpaceVO>> listSpaces() {
-        return Result.ok(parkingService.listSpaces());
+    public Result<List<ZoneVO>> listZones() {
+        return Result.ok(parkingService.listZones());
     }
-
-    /**
-     * 预约车位（需登录）
-     *
-     * @param req 预约请求参数
-     * @return 预约订单 VO
-     */
-    @PostMapping("/orders")
-    public Result<ParkingOrderVO> bookParking(@Valid @RequestBody ParkingOrderReq req) {
-        Long userId = LoginUser.getUserId();
-        if (userId == null) {
-            throw new BizException(ResultCode.UNAUTHORIZED, i18nUtil.msg(ResultCode.UNAUTHORIZED));
-        }
-        return Result.ok(parkingService.bookParking(req, userId));
-    }
-
-    /**
-     * 取消车位预约（需登录，且只能取消自己的订单）
-     *
-     * @param orderId 订单 ID
-     * @return 空数据
-     */
-    @PostMapping("/orders/{orderId}/cancel")
-    public Result<Void> cancelOrder(@PathVariable Long orderId) {
-        Long userId = LoginUser.getUserId();
-        if (userId == null) {
-            throw new BizException(ResultCode.UNAUTHORIZED, i18nUtil.msg(ResultCode.UNAUTHORIZED));
-        }
-        parkingService.cancelOrder(orderId, userId);
-        return Result.ok();
-    }
-
-    // ───────────── 新版：按车位预约 ─────────────
 
     /**
      * 查询某区域所有车位状态（给前端渲染可视化布局）
@@ -89,7 +52,7 @@ public class ParkingController {
     }
 
     /**
-     * 预约选位（用户点击某个空闲车位）
+     * 预约选位（用户点击某个空闲车位，需登录）
      */
     @PostMapping("/spots/{spotId}/book")
     public Result<ParkingSpotVO> bookSpot(@PathVariable Long spotId, @RequestBody BookSpotReq req) {
@@ -102,7 +65,7 @@ public class ParkingController {
     }
 
     /**
-     * 自助结算离场（点击已占用/超时车位）
+     * 自助结算离场（点击已占用车位，需登录）
      */
     @PostMapping("/spots/{spotId}/settle")
     public Result<ParkingSpotVO> settleSpot(@PathVariable Long spotId) {

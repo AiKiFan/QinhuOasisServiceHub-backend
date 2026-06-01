@@ -13,16 +13,4 @@
         SELECT * FROM parking_space WHERE id = #{id}
     </select>
 
-    <update id="decrementAvailable">
-        UPDATE parking_space
-        SET available_count = available_count - 1
-        WHERE id = #{id} AND available_count > 0
-    </update>
-
-    <update id="incrementAvailable">
-        UPDATE parking_space
-        SET available_count = available_count + 1
-        WHERE id = #{id} AND available_count &lt; total_capacity
-    </update>
-
 </mapper>

@@ -3,8 +3,6 @@ package com.qinhu.oasis.tourism.mapper;
 import com.qinhu.oasis.tourism.entity.BizOrder;
 import org.apache.ibatis.annotations.Param;
 
-import java.util.List;
-
 /**
  * 业务订单数据访问层（MyBatis Mapper），对应 mapper/tourism/BizOrderMapper.xml
  *
@@ -39,32 +37,10 @@ public interface BizOrderMapper {
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
     /**
-     * 查询超时未入场的停车订单（定时任务用）
-     * <p>条件：停车订单 + 待入场状态 + 入场时间已超过30分钟</p>
-     *
-     * @return 超时订单列表
-     */
-    List<BizOrder> selectTimeoutParkingOrders();
-
-    /**
-     * 更新订单取消信息（取消原因 + 取消方）
-     *
-     * @param id            订单ID
-     * @param status        目标状态
-     * @param cancelReason  取消原因
-     * @param cancelledBy   取消方
-     * @return 受影响行数
-     */
-    int updateCancelInfo(@Param("id") Long id,
-                         @Param("status") Integer status,
-                         @Param("cancelReason") String cancelReason,
-                         @Param("cancelledBy") String cancelledBy);
-
-    /**
      * 更新订单实付金额（停车结算时使用）
      *
      * @param id          订单ID
-     * @param paidAmount  实付金额
+     * @param paidAmount 实付金额
      * @return 受影响行数
      */
     int updatePaidAmount(@Param("id") Long id, @Param("paidAmount") java.math.BigDecimal paidAmount);

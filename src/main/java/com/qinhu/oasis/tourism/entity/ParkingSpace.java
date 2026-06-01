@@ -26,8 +26,6 @@ public class ParkingSpace {
     private Integer spaceType;
     /** 总车位数量 */
     private Integer totalCapacity;
-    /** 当前可用数（Redis 镜像，仅展示用） */
-    private Integer availableCount;
     /** 位置描述 */
     private String locationDesc;
     /** 停车费率（元/小时） */

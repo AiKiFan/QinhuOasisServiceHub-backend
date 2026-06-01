@@ -1,6 +1,8 @@
 package com.qinhu.oasis.tourism.service;
 
-import com.qinhu.oasis.tourism.dto.*;
+import com.qinhu.oasis.tourism.dto.BookSpotReq;
+import com.qinhu.oasis.tourism.dto.ParkingSpotVO;
+import com.qinhu.oasis.tourism.dto.ZoneVO;
 
 import java.util.List;
 
@@ -12,13 +14,12 @@ import java.util.List;
  */
 public interface ParkingService {
 
-    // ── 旧版：按区域预约 ──
-    List<ParkingSpaceVO> listSpaces();
-    ParkingOrderVO bookParking(ParkingOrderReq req, Long userId);
-    void cancelOrder(Long orderId, Long userId);
-    void initStockToRedis();
-
-    // ── 新版：按车位预约 ──
+    /**
+     * 查询所有停车区域（给 detail 页渲染区域 Tab）
+     *
+     * @return 停车区域列表
+     */
+    List<ZoneVO> listZones();
 
     /**
      * 查询某区域所有车位的实时状态（给前端渲染可视化布局）
@@ -45,11 +46,4 @@ public interface ParkingService {
      * @return 费用明细VO
      */
     ParkingSpotVO settleSpot(Long spotId, Long userId);
-
-    /**
-     * 超时检测定时任务：已废弃，改为实时计时制
-     * @deprecated 实时计时制无需超时检测，用户可随时结算
-     */
-    @Deprecated
-    void detectOvertime();
 }
