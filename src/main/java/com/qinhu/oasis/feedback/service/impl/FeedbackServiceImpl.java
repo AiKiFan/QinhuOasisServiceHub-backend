@@ -96,7 +96,8 @@ public class FeedbackServiceImpl implements FeedbackService {
         String prev = existing.getReplyContent() == null ? "" : existing.getReplyContent();
         String separator = prev.isEmpty() ? "" : "\n---\n";
         String timestamp = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-        String roleLabel = getAdminRoleLabel(); // 根据语言环境获取 [管理员] 或 [Admin]
+        // 根据语言环境获取 [管理员] 或 [Admin]
+        String roleLabel = getAdminRoleLabel();
         String fullReply = prev + separator + "[" + timestamp + "] " + roleLabel + " " + req.getReplyContent();
 
         feedbackMapper.updateReply(feedbackId, fullReply, req.getStatus(), adminId, LocalDateTime.now());
@@ -144,7 +145,8 @@ public class FeedbackServiceImpl implements FeedbackService {
         String prev = existing.getReplyContent() == null ? "" : existing.getReplyContent();
         String separator = prev.isEmpty() ? "" : "\n---\n";
         String timestamp = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-        String roleLabel = getUserRoleLabel(); // 根据语言环境获取 [用户] 或 [User]
+        // 根据语言环境获取 [用户] 或 [User]
+        String roleLabel = getUserRoleLabel();
         String appended = prev + separator + "[" + timestamp + "] " + roleLabel + " " + req.getReplyContent();
         feedbackMapper.appendReplyContent(feedbackId, appended, FeedbackStatus.PROCESSING);
         log.info("Feedback user-reply appended: id={}, userId={}", feedbackId, userId);

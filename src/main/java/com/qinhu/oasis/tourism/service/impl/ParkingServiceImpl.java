@@ -39,150 +39,154 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ParkingServiceImpl implements ParkingService {
 
-    private static final Snowflake SNOWFLAKE = IdUtil.createSnowflake(1, 1);
+ private static final Snowflake SNOWFLAKE = IdUtil.createSnowflake(1, 1);
 
-    /** 分布式锁 Key 前缀 */
-    private static final String LOCK_KEY_PREFIX = "parking:lock:";
-    /** 锁持有超时时间（秒） */
-    private static final long LOCK_TIMEOUT_SECONDS = 5L;
+ /** 分布式锁 Key 前缀 */
+ private static final String LOCK_KEY_PREFIX = "parking:lock:";
+ /** 锁持有超时时间（秒） */
+ private static final long LOCK_TIMEOUT_SECONDS = 5L;
 
-    private final ParkingSpaceMapper parkingSpaceMapper;
-    private final BizOrderMapper bizOrderMapper;
-    private final StringRedisTemplate stringRedisTemplate;
-    private final I18nUtil i18nUtil;
+ private final ParkingSpaceMapper parkingSpaceMapper;
+ private final BizOrderMapper bizOrderMapper;
+ private final StringRedisTemplate stringRedisTemplate;
+ private final I18nUtil i18nUtil;
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.qinhu.oasis.tourism.mapper.ParkingSpotMapper parkingSpotMapper;
+ @org.springframework.beans.factory.annotation.Autowired(required = false)
+ private com.qinhu.oasis.tourism.mapper.ParkingSpotMapper parkingSpotMapper;
 
-    @Override
-    public List<ZoneVO> listZones() {
-        return parkingSpaceMapper.selectAll().stream().map(s -> {
-            ZoneVO vo = new ZoneVO();
-            vo.setId(s.getId());
-            vo.setZoneName(s.getZoneName());
-            vo.setZoneNameEn(s.getZoneNameEn());
-            vo.setZoneCode(s.getZoneCode());
-            vo.setHourlyRate(s.getHourlyRate());
-            vo.setLocationDesc(s.getLocationDesc());
-            vo.setStatus(s.getStatus());
-            return vo;
-        }).collect(Collectors.toList());
-    }
+ @Override
+ public List<ZoneVO> listZones() {
+ return parkingSpaceMapper.selectAll().stream().map(s -> {
+ ZoneVO vo = new ZoneVO();
+ vo.setId(s.getId());
+ vo.setZoneName(s.getZoneName());
+ vo.setZoneNameEn(s.getZoneNameEn());
+ vo.setZoneCode(s.getZoneCode());
+ vo.setHourlyRate(s.getHourlyRate());
+ vo.setLocationDesc(s.getLocationDesc());
+ vo.setStatus(s.getStatus());
+ return vo;
+ }).collect(Collectors.toList());
+ }
 
-    @Override
-    public List<ParkingSpotVO> getZoneSpots(Long zoneId) {
-        if (parkingSpotMapper == null) return List.of();
-        List<com.qinhu.oasis.tourism.entity.ParkingSpot> spots = parkingSpotMapper.selectByZoneId(zoneId);
-        return spots.stream().map(this::toSpotVO).collect(Collectors.toList());
-    }
+ @Override
+ public List<ParkingSpotVO> getZoneSpots(Long zoneId) {
+ if (parkingSpotMapper == null) return List.of();
+ List<com.qinhu.oasis.tourism.entity.ParkingSpot> spots = parkingSpotMapper.selectByZoneId(zoneId);
+ return spots.stream().map(this::toSpotVO).collect(Collectors.toList());
+ }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public ParkingSpotVO bookSpot(BookSpotReq req, Long userId) {
-        if (parkingSpotMapper == null) throw new BizException(ResultCode.NOT_FOUND, "车位模块未初始化");
+ @Override
+ @Transactional(rollbackFor = Exception.class)
+ public ParkingSpotVO bookSpot(BookSpotReq req, Long userId) {
+ if (parkingSpotMapper == null) throw new BizException(ResultCode.NOT_FOUND, "车位模块未初始化");
 
-        com.qinhu.oasis.tourism.entity.ParkingSpot spot = parkingSpotMapper.selectById(req.getSpotId());
-        if (spot == null) throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
-        if (spot.getStatus() != 0) throw new BizException(ResultCode.PARKING_STOCK_EMPTY, i18nUtil.msg(ResultCode.PARKING_STOCK_EMPTY));
+ com.qinhu.oasis.tourism.entity.ParkingSpot spot = parkingSpotMapper.selectById(req.getSpotId());
+ if (spot == null) throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+ if (spot.getStatus() != 0) throw new BizException(ResultCode.PARKING_STOCK_EMPTY, i18nUtil.msg(ResultCode.PARKING_STOCK_EMPTY));
 
-        // 分布式锁（针对具体车位）
-        String lockKey = LOCK_KEY_PREFIX + "spot:" + req.getSpotId();
-        Boolean acquired = stringRedisTemplate.opsForValue()
-                .setIfAbsent(lockKey, "1", LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        if (Boolean.FALSE.equals(acquired)) throw new BizException(ResultCode.PARKING_STOCK_EMPTY, "车位繁忙，请重试");
+ // 检查车牌号是否已占用其他车位
+ com.qinhu.oasis.tourism.entity.ParkingSpot existingSpot = parkingSpotMapper.selectOccupiedByVehicleNo(req.getVehicleNo());
+ if (existingSpot != null) throw new BizException(ResultCode.PARKING_VEHICLE_DUPLICATE, i18nUtil.msg(ResultCode.PARKING_VEHICLE_DUPLICATE));
 
-        try {
-            LocalDateTime now = LocalDateTime.now();
+ // 分布式锁（针对具体车位）
+ String lockKey = LOCK_KEY_PREFIX + "spot:" + req.getSpotId();
+ Boolean acquired = stringRedisTemplate.opsForValue()
+ .setIfAbsent(lockKey, "1", LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+ if (Boolean.FALSE.equals(acquired)) throw new BizException(ResultCode.PARKING_STOCK_EMPTY, "车位繁忙，请重试");
 
-            // 生成订单（入场时 totalAmount=0，离场时计算实际费用）
-            BizOrder order = new BizOrder();
-            order.setOrderNo(SNOWFLAKE.nextIdStr());
-            order.setOrderType(OrderType.PARKING);
-            order.setUserId(userId);
-            order.setParkingSpaceId(spot.getZoneId());
-            order.setVehicleNo(req.getVehicleNo());
-            order.setStartTime(now);
-            order.setEndTime(now);
-            order.setTotalAmount(BigDecimal.ZERO);
-            order.setPaidAmount(BigDecimal.ZERO);
-            order.setStatus(OrderStatus.PENDING);
-            bizOrderMapper.insert(order);
+ try {
+ LocalDateTime now = LocalDateTime.now();
 
-            // 更新车位状态为已占用
-            parkingSpotMapper.updateSpot(req.getSpotId(), 1,
-                    req.getVehicleNo(), userId, order.getId(), now, null);
+ // 生成订单（入场时 totalAmount=0，离场时计算实际费用）
+ BizOrder order = new BizOrder();
+ order.setOrderNo(SNOWFLAKE.nextIdStr());
+ order.setOrderType(OrderType.PARKING);
+ order.setUserId(userId);
+ order.setParkingSpaceId(spot.getZoneId());
+ order.setVehicleNo(req.getVehicleNo());
+ order.setStartTime(now);
+ order.setEndTime(now);
+ order.setTotalAmount(BigDecimal.ZERO);
+ order.setPaidAmount(BigDecimal.ZERO);
+ order.setStatus(OrderStatus.PENDING);
+ bizOrderMapper.insert(order);
 
-            return toSpotVO(parkingSpotMapper.selectById(req.getSpotId()));
-        } finally {
-            stringRedisTemplate.delete(lockKey);
-        }
-    }
+ // 更新车位状态为已占用
+ parkingSpotMapper.updateSpot(req.getSpotId(), 1,
+ req.getVehicleNo(), userId, order.getId(), now, null);
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public ParkingSpotVO settleSpot(Long spotId, Long userId) {
-        if (parkingSpotMapper == null) throw new BizException(ResultCode.NOT_FOUND, "车位模块未初始化");
+ return toSpotVO(parkingSpotMapper.selectById(req.getSpotId()));
+ } finally {
+ stringRedisTemplate.delete(lockKey);
+ }
+ }
 
-        com.qinhu.oasis.tourism.entity.ParkingSpot spot = parkingSpotMapper.selectById(spotId);
-        if (spot == null) throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
-        if (spot.getStatus() == 0) throw new BizException(ResultCode.PARKING_STOCK_EMPTY, "该车位当前空闲，无需结算");
+ @Override
+ @Transactional(rollbackFor = Exception.class)
+ public ParkingSpotVO settleSpot(Long spotId, Long userId) {
+ if (parkingSpotMapper == null) throw new BizException(ResultCode.NOT_FOUND, "车位模块未初始化");
 
-        // 权限验证：只能结算自己预约的车位
-        if (spot.getUserId() == null || !spot.getUserId().equals(userId)) {
-            throw new BizException(ResultCode.FORBIDDEN, "只能结算自己预约的车位");
-        }
+ com.qinhu.oasis.tourism.entity.ParkingSpot spot = parkingSpotMapper.selectById(spotId);
+ if (spot == null) throw new BizException(ResultCode.NOT_FOUND, i18nUtil.msg(ResultCode.NOT_FOUND));
+ if (spot.getStatus() == 0) throw new BizException(ResultCode.PARKING_STOCK_EMPTY, "该车位当前空闲，无需结算");
 
-        // 计算实际时长（向上取整，不足1小时按1小时算）
-        LocalDateTime actualEnd = LocalDateTime.now();
-        LocalDateTime start = spot.getStartTime() != null ? spot.getStartTime() : actualEnd;
+ // 权限验证：只能结算自己预约的车位
+ if (spot.getUserId() == null || !spot.getUserId().equals(userId)) {
+ throw new BizException(ResultCode.FORBIDDEN, "只能结算自己预约的车位");
+ }
 
-        long minutes = ChronoUnit.MINUTES.between(start, actualEnd);
-        int hours = (int) Math.ceil(minutes / 60.0);
-        if (hours < 1) hours = 1;
+ // 计算实际时长（向上取整，不足1小时按1小时算）
+ LocalDateTime actualEnd = LocalDateTime.now();
+ LocalDateTime start = spot.getStartTime() != null ? spot.getStartTime() : actualEnd;
 
-        // 计算费用
-        ParkingSpace space = parkingSpaceMapper.selectById(spot.getZoneId());
-        BigDecimal hourlyRate = space.getHourlyRate();
-        BigDecimal totalFee = hourlyRate.multiply(BigDecimal.valueOf(hours));
+ long minutes = ChronoUnit.MINUTES.between(start, actualEnd);
+ int hours = (int) Math.ceil(minutes / 60.0);
+ if (hours < 1) hours = 1;
 
-        // 更新订单状态为已完成
-        if (spot.getOrderId() != null) {
-            BizOrder order = bizOrderMapper.selectById(spot.getOrderId());
-            if (order != null) {
-                order.setEndTime(actualEnd);
-                order.setPaidAmount(totalFee);
-                order.setStatus(OrderStatus.COMPLETED);
-                bizOrderMapper.updateStatus(order.getId(), OrderStatus.COMPLETED);
-                bizOrderMapper.updatePaidAmount(order.getId(), totalFee);
-            }
-        }
+ // 计算费用
+ ParkingSpace space = parkingSpaceMapper.selectById(spot.getZoneId());
+ BigDecimal hourlyRate = space.getHourlyRate();
+ BigDecimal totalFee = hourlyRate.multiply(BigDecimal.valueOf(hours));
 
-        // 重置车位为空闲
-        parkingSpotMapper.resetSpot(spotId);
+ // 更新订单状态为已完成
+ if (spot.getOrderId() != null) {
+ BizOrder order = bizOrderMapper.selectById(spot.getOrderId());
+ if (order != null) {
+ order.setEndTime(actualEnd);
+ order.setPaidAmount(totalFee);
+ order.setStatus(OrderStatus.COMPLETED);
+ bizOrderMapper.updateStatus(order.getId(), OrderStatus.COMPLETED);
+ bizOrderMapper.updatePaidAmount(order.getId(), totalFee);
+ }
+ }
 
-        ParkingSpotVO vo = toSpotVO(parkingSpotMapper.selectById(spotId));
-        vo.setTotalAmount(totalFee);
-        vo.setNormalFee(totalFee);
-        vo.setOvertimeFee(BigDecimal.ZERO);
-        vo.setNormalHours((double) hours);
-        vo.setOvertimeHours(0.0);
-        return vo;
-    }
+ // 重置车位为空闲
+ parkingSpotMapper.resetSpot(spotId);
 
-    // ───────────── 私有辅助方法 ─────────────
+ ParkingSpotVO vo = toSpotVO(parkingSpotMapper.selectById(spotId));
+ vo.setTotalAmount(totalFee);
+ vo.setNormalFee(totalFee);
+ vo.setOvertimeFee(BigDecimal.ZERO);
+ vo.setNormalHours((double) hours);
+ vo.setOvertimeHours(0.0);
+ return vo;
+ }
 
-    private ParkingSpotVO toSpotVO(com.qinhu.oasis.tourism.entity.ParkingSpot spot) {
-        ParkingSpotVO vo = new ParkingSpotVO();
-        vo.setId(spot.getId());
-        vo.setZoneId(spot.getZoneId());
-        vo.setSpotCode(spot.getSpotCode());
-        vo.setStatus(spot.getStatus());
-        vo.setChargerType(spot.getChargerType());
-        vo.setVehicleNo(spot.getVehicleNo());
-        vo.setUserId(spot.getUserId());
-        vo.setStartTime(spot.getStartTime());
-        vo.setPlannedEndTime(spot.getPlannedEndTime());
-        vo.setActualEndTime(spot.getActualEndTime());
-        return vo;
-    }
+ // ───────────── 私有辅助方法 ─────────────
+
+ private ParkingSpotVO toSpotVO(com.qinhu.oasis.tourism.entity.ParkingSpot spot) {
+ ParkingSpotVO vo = new ParkingSpotVO();
+ vo.setId(spot.getId());
+ vo.setZoneId(spot.getZoneId());
+ vo.setSpotCode(spot.getSpotCode());
+ vo.setStatus(spot.getStatus());
+ vo.setChargerType(spot.getChargerType());
+ vo.setVehicleNo(spot.getVehicleNo());
+ vo.setUserId(spot.getUserId());
+ vo.setStartTime(spot.getStartTime());
+ vo.setPlannedEndTime(spot.getPlannedEndTime());
+ vo.setActualEndTime(spot.getActualEndTime());
+ return vo;
+ }
 }
