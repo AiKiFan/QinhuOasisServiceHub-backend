@@ -1,10 +1,12 @@
 package com.qinhu.oasis.common.init;
 
+import com.qinhu.oasis.common.constant.SystemConfigKeys;
 import com.qinhu.oasis.restaurant.service.RestaurantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,15 +21,27 @@ import org.springframework.stereotype.Component;
 public class RedisDataInitializer implements ApplicationRunner {
 
     private final RestaurantService restaurantService;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public void run(ApplicationArguments args) {
         log.info("=== Redis 数据初始化开始 ===");
         try {
             restaurantService.initRankToRedis();
+            initGuideReviewConfig();
             log.info("=== Redis 数据初始化完成 ===");
         } catch (Exception e) {
             log.error("Redis 数据初始化失败，请检查 Redis 连接及数据库数据", e);
+        }
+    }
+
+    /**
+     * 初始化游客攻略审核开关，已有配置时不覆盖管理员设置。
+     */
+    private void initGuideReviewConfig() {
+        Boolean exists = stringRedisTemplate.hasKey(SystemConfigKeys.GUIDE_REVIEW_ENABLED);
+        if (!Boolean.TRUE.equals(exists)) {
+            stringRedisTemplate.opsForValue().set(SystemConfigKeys.GUIDE_REVIEW_ENABLED, "1");
         }
     }
 }

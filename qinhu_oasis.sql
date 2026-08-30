@@ -868,6 +868,7 @@ CREATE TABLE `ugc_post`  (
   `like_count` int UNSIGNED NOT NULL DEFAULT 0 COMMENT '点赞数',
   `comment_count` int UNSIGNED NOT NULL DEFAULT 0 COMMENT '评论数',
   `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '状态: 0-草稿 1-已发布 2-审核中 3-已下架',
+  `is_private` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否私密: 0-公开 1-仅作者可见',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT '软删除',

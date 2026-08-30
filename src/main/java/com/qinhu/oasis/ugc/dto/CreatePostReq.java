@@ -41,4 +41,7 @@ public class CreatePostReq {
     /** 图片列表（最多9张，URL 列表） */
     @Size(max = 9, message = "最多上传9张图片")
     private List<String> images;
+
+    /** 是否私密：true-仅作者可见 false-公开 */
+    private Boolean isPrivate;
 }

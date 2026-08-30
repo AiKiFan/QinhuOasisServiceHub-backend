@@ -4,29 +4,34 @@
 
 <mapper namespace="com.qinhu.oasis.ugc.mapper.UgcPostMapper">
 
-    <!-- 列表分页查询（LEFT JOIN sys_user 获取作者信息） -->
+    <sql id="listColumns">
+        p.id,
+        p.user_id,
+        u.nickname AS author_nickname,
+        u.avatar AS author_avatar,
+        p.post_type,
+        p.title,
+        p.title_en,
+        p.summary,
+        p.cover_img,
+        p.view_count,
+        p.like_count,
+        p.comment_count,
+        p.status,
+        p.is_private,
+        p.create_time
+    </sql>
+
     <select id="selectPage" resultType="com.qinhu.oasis.ugc.dto.PostListVO">
-        SELECT p.id,
-               p.user_id,
-               u.nickname  AS author_nickname,
-               u.avatar    AS author_avatar,
-               p.post_type,
-               p.title,
-               p.title_en,
-               p.summary,
-               p.cover_img,
-               p.view_count,
-               p.like_count,
-               p.comment_count,
-               p.status,
-               p.create_time
+        SELECT <include refid="listColumns"/>
         FROM ugc_post p
-                 LEFT JOIN sys_user u ON p.user_id = u.id
+        LEFT JOIN sys_user u ON p.user_id = u.id
         WHERE p.deleted = 0
           AND p.status = 1
-            <if test="postType != null">
-                AND p.post_type = #{postType}
-            </if>
+          AND p.is_private = 0
+        <if test="postType != null">
+            AND p.post_type = #{postType}
+        </if>
         ORDER BY p.create_time DESC
         LIMIT #{offset}, #{size}
     </select>
@@ -36,59 +41,54 @@
         FROM ugc_post
         WHERE deleted = 0
           AND status = 1
-            <if test="postType != null">
-                AND post_type = #{postType}
-            </if>
+          AND is_private = 0
+        <if test="postType != null">
+            AND post_type = #{postType}
+        </if>
     </select>
 
-    <!-- 详情查询（含正文 content 和 images） -->
     <select id="selectDetailById" resultType="com.qinhu.oasis.ugc.dto.PostDetailVO">
-        SELECT p.id,
-               p.user_id,
-               u.nickname  AS author_nickname,
-               u.avatar    AS author_avatar,
-               p.post_type,
-               p.title,
-               p.title_en,
-               p.summary,
+        SELECT <include refid="listColumns"/>,
                p.content,
-               p.cover_img,
-               p.images,
-               p.view_count,
-               p.like_count,
-               p.comment_count,
-               p.status,
-               p.create_time
+               p.images
         FROM ugc_post p
-                 LEFT JOIN sys_user u ON p.user_id = u.id
+        LEFT JOIN sys_user u ON p.user_id = u.id
         WHERE p.id = #{id}
           AND p.deleted = 0
     </select>
 
+    <select id="selectEntityById" resultType="com.qinhu.oasis.ugc.entity.UgcPost">
+        SELECT id, user_id, post_type, title, title_en, summary, content,
+               cover_img, images, view_count, like_count, comment_count,
+               status, is_private, create_time, update_time, deleted
+        FROM ugc_post
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ugc_post (user_id, post_type, title, title_en, summary, content,
-                              cover_img, images, status)
+                              cover_img, images, status, is_private)
         VALUES (#{userId}, #{postType}, #{title}, #{titleEn}, #{summary}, #{content},
-                #{coverImg}, #{images}, #{status})
+                #{coverImg}, #{images}, #{status}, #{isPrivate})
     </insert>
 
     <update id="incrementViewCount">
-        UPDATE ugc_post SET view_count = view_count + 1 WHERE id = #{id}
+        UPDATE ugc_post SET view_count = view_count + 1 WHERE id = #{id} AND deleted = 0
     </update>
 
     <update id="incrementLikeCount">
-        UPDATE ugc_post SET like_count = like_count + 1 WHERE id = #{id}
+        UPDATE ugc_post SET like_count = like_count + 1 WHERE id = #{id} AND deleted = 0
     </update>
 
     <update id="decrementLikeCount">
-        UPDATE ugc_post SET like_count = GREATEST(like_count - 1, 0) WHERE id = #{id}
+        UPDATE ugc_post SET like_count = GREATEST(like_count - 1, 0) WHERE id = #{id} AND deleted = 0
     </update>
 
     <update id="incrementCommentCount">
-        UPDATE ugc_post SET comment_count = comment_count + 1 WHERE id = #{id}
+        UPDATE ugc_post SET comment_count = comment_count + 1 WHERE id = #{id} AND deleted = 0
     </update>
 
-    <!-- 图片清理：查询所有有图片的 UGC 帖子 -->
     <select id="selectAllForCleanup" resultType="com.qinhu.oasis.ugc.entity.UgcPost">
         SELECT * FROM ugc_post
         WHERE deleted = 0
@@ -96,13 +96,118 @@
                OR (images IS NOT NULL AND images != ''))
     </select>
 
-    <!-- 更新 UGC 帖子（用于图片清理） -->
     <update id="updateById" parameterType="com.qinhu.oasis.ugc.entity.UgcPost">
         UPDATE ugc_post
         SET cover_img = #{coverImg},
-            images    = #{images},
+            images = #{images},
             update_time = NOW()
         WHERE id = #{id}
     </update>
+
+    <update id="updateIsPrivate">
+        UPDATE ugc_post
+        SET is_private = #{isPrivate},
+            update_time = NOW()
+        WHERE id = #{id}
+          AND user_id = #{userId}
+          AND deleted = 0
+    </update>
+
+    <update id="updateByUserId" parameterType="com.qinhu.oasis.ugc.entity.UgcPost">
+        UPDATE ugc_post
+        SET title = #{title},
+            title_en = #{titleEn},
+            summary = #{summary},
+            content = #{content},
+            cover_img = #{coverImg},
+            images = #{images},
+            update_time = NOW()
+        WHERE id = #{id}
+          AND user_id = #{userId}
+          AND deleted = 0
+    </update>
+
+    <update id="softDeleteByUser">
+        UPDATE ugc_post
+        SET deleted = 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND user_id = #{userId}
+          AND deleted = 0
+    </update>
+
+    <update id="softDeleteByAdmin">
+        UPDATE ugc_post
+        SET deleted = 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="adminUpdateStatus">
+        UPDATE ugc_post
+        SET status = #{status},
+            update_time = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <select id="selectMyPosts" resultType="com.qinhu.oasis.ugc.dto.PostListVO">
+        SELECT <include refid="listColumns"/>
+        FROM ugc_post p
+        LEFT JOIN sys_user u ON p.user_id = u.id
+        WHERE p.user_id = #{userId}
+          AND p.deleted = 0
+        ORDER BY p.update_time DESC, p.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countMyPosts" resultType="long">
+        SELECT COUNT(*)
+        FROM ugc_post
+        WHERE user_id = #{userId}
+          AND deleted = 0
+    </select>
+
+    <select id="selectAdminPage" resultType="com.qinhu.oasis.ugc.dto.PostListVO">
+        SELECT <include refid="listColumns"/>
+        FROM ugc_post p
+        LEFT JOIN sys_user u ON p.user_id = u.id
+        WHERE p.deleted = 0
+        <if test="postType != null">
+            AND p.post_type = #{postType}
+        </if>
+        <if test="status != null">
+            AND p.status = #{status}
+        </if>
+        ORDER BY p.update_time DESC, p.create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*)
+        FROM ugc_post
+        WHERE deleted = 0
+        <if test="postType != null">
+            AND post_type = #{postType}
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <select id="selectByIds" resultType="com.qinhu.oasis.ugc.dto.PostListVO">
+        SELECT <include refid="listColumns"/>
+        FROM ugc_post p
+        LEFT JOIN sys_user u ON p.user_id = u.id
+        WHERE p.deleted = 0
+          AND p.status = 1
+          AND p.is_private = 0
+          AND p.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY p.create_time DESC
+    </select>
 
 </mapper>

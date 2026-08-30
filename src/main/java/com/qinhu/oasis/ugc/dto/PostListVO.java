@@ -31,5 +31,7 @@ public class PostListVO {
     private Integer likeCount;
     private Integer commentCount;
     private Integer status;
+    /** 是否私密：0-公开 1-仅作者可见 */
+    private Integer isPrivate;
     private LocalDateTime createTime;
 }

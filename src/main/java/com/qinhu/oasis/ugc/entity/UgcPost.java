@@ -32,6 +32,8 @@ public class UgcPost {
     private Integer commentCount;
     /** 状态：0-草稿 1-已发布 2-审核中 3-已下架 */
     private Integer status;
+    /** 是否私密：0-公开 1-仅作者可见 */
+    private Integer isPrivate;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     private Integer deleted;

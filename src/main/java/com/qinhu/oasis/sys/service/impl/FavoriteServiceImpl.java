@@ -10,10 +10,15 @@ import com.qinhu.oasis.sys.mapper.UserFavoriteMapper;
 import com.qinhu.oasis.sys.service.FavoriteService;
 import com.qinhu.oasis.tourism.dto.ScenicSpotListVO;
 import com.qinhu.oasis.tourism.service.ScenicSpotService;
+import com.qinhu.oasis.ugc.dto.PostListVO;
+import com.qinhu.oasis.ugc.mapper.UgcPostMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 用户收藏服务实现类
@@ -29,6 +34,7 @@ public class FavoriteServiceImpl implements FavoriteService {
     private final RestaurantService restaurantService;
     private final InterpreterService interpreterService;
     private final ScenicSpotService scenicSpotService;
+    private final UgcPostMapper ugcPostMapper;
 
     @Override
     public void addFavorite(Long userId, FavoriteReq req) {
@@ -82,6 +88,10 @@ public class FavoriteServiceImpl implements FavoriteService {
                     List<ScenicSpotListVO> spots = scenicSpotService.getScenicSpotsByIds(targetIds);
                     items.addAll(spots);
                     break;
+                case "travel_guide":
+                    List<PostListVO> guides = ugcPostMapper.selectByIds(targetIds);
+                    items.addAll(guides);
+                    break;
             }
         }
         result.put("list", items);
@@ -107,6 +117,11 @@ public class FavoriteServiceImpl implements FavoriteService {
         List<Long> scenicIds = userFavoriteMapper.selectTargetIdsByUserAndType(userId, "scenic");
         List<ScenicSpotListVO> spots = scenicIds.isEmpty() ? List.of() : scenicSpotService.getScenicSpotsByIds(scenicIds);
         result.put("scenicSpots", spots);
+
+        // 攻略收藏
+        List<Long> guideIds = userFavoriteMapper.selectTargetIdsByUserAndType(userId, "travel_guide");
+        List<PostListVO> guides = guideIds.isEmpty() ? List.of() : ugcPostMapper.selectByIds(guideIds);
+        result.put("travelGuides", guides);
 
         return result;
     }
